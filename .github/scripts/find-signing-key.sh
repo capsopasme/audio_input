@@ -76,7 +76,22 @@ for n in "${candidates[@]}"; do
   [ -n "$store_pwd" ] && break
 done
 
-if [ -z "$store_pwd" ] && [ "$ks_type" = PKCS12 ]; then
+if [ -z "$store_pwd" ]; then
+  # Secrets swapped by mistake (e.g. the alias holding the password), or no password at all:
+  # every other secret is a cheap guess.
+  for n in $names; do
+    [ "$n" = "$ks_name" ] && continue
+    v=$(value "$n")
+    [ ${#v} -le 200 ] || continue
+    while IFS= read -r p; do
+      if opens_store "$p"; then store_pwd=$p; store_name=$n; break 2; fi
+    done < <(variants "$v")
+  done
+  if [ -z "$store_pwd" ] && opens_store ""; then store_pwd=""; store_name="(empty password)"; fi
+  [ -n "$store_name" ] && [[ " ${candidates[*]-} " != *" $store_name "* ]] && candidates+=("$store_name")
+fi
+
+if [ -z "$store_pwd" ] && [ -z "$store_name" ] && [ "$ks_type" = PKCS12 ]; then
   # A PKCS#12 file keytool can't read (e.g. legacy RC2 encryption from an old OpenSSL): if
   # OpenSSL opens it, re-pack it with algorithms Java reads, keeping the same password.
   for n in "${candidates[@]}"; do
@@ -99,7 +114,7 @@ if [ -z "$store_pwd" ] && [ "$ks_type" = PKCS12 ]; then
   done
 fi
 
-if [ -z "$store_pwd" ]; then
+if [ -z "$store_pwd" ] && [ -z "$store_name" ]; then
   # explain, without revealing anything secret
   size=$(stat -c %s "$ks")
   why=""
