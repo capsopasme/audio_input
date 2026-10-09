@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">离线语音输入</string>
+    <string name="ime_name">离线语音输入</string>
+    <string name="subtype_voice">语音</string>
+
+    <!-- models -->
+    <string name="model_sense_voice_qnn">SenseVoice · 高通 NPU（骁龙 8 Gen 3）</string>
+    <string name="model_sense_voice_qnn_desc">SM8650 推荐。跑在 NPU 上，快且最省电。中/英/粤/日/韩，自带标点。</string>
+    <string name="model_sense_voice_cpu">SenseVoice · CPU</string>
+    <string name="model_sense_voice_cpu_desc">同一个模型跑在 CPU 上，任何手机都能用；也是 NPU 出问题时的自动后备。</string>
+    <string name="model_qwen3_asr">Qwen3-ASR 0.6B · CPU</string>
+    <string name="model_qwen3_asr_desc">最准，但体积大、较慢（每句约 1–2 秒，没有实时预览）。</string>
+
+    <string name="lang_auto">自动（中英混说）</string>
+    <string name="lang_zh">普通话</string>
+    <string name="lang_en">英语</string>
+    <string name="lang_yue">粤语</string>
+    <string name="lang_ja">日语</string>
+    <string name="lang_ko">韩语</string>
+
+    <string name="backend_npu">NPU（QNN HTP）</string>
+    <string name="backend_cpu">CPU</string>
+    <string name="backend_cpu_fallback">CPU（NPU 不可用，已自动回退）</string>
+
+    <string name="error_model_missing">模型文件缺失：%1$s</string>
+    <string name="error_init_failed">模型加载失败。%1$s</string>
+    <string name="error_qnn_soc">NPU 模型是为骁龙 8 Gen 3（SM8650）编译的，本机是 %1$s，请改用 CPU 模型。</string>
+    <string name="error_qnn_libs">此版本没有打包 QNN 运行库：%1$s</string>
+    <string name="error_qnn_crashed">上次加载 NPU 模型时识别进程崩溃了，已暂停使用 NPU。请下载「SenseVoice · CPU」作为后备，或在设置里对 NPU 模型点「自检」重试。</string>
+    <string name="error_interrupted">被另一个语音会话打断（例如设置里的自检）</string>
+    <string name="error_no_test_wav">模型目录里没有测试音频</string>
+
+    <!-- panel -->
+    <string name="panel_switch_ime">切回上一个输入法（长按：选择输入法）</string>
+    <string name="panel_settings">语音输入设置</string>
+    <string name="panel_start">开始聆听</string>
+    <string name="panel_stop">停止聆听</string>
+    <string name="panel_undo">撤销上一句</string>
+    <string name="panel_backspace">删除</string>
+    <string name="panel_space">空格</string>
+    <string name="panel_enter">换行</string>
+    <string name="panel_enter_search">搜索</string>
+    <string name="panel_enter_send">发送</string>
+    <string name="panel_enter_go">前往</string>
+    <string name="panel_enter_next">下一项</string>
+    <string name="panel_enter_done">完成</string>
+
+    <string name="status_starting">正在启动…</string>
+    <string name="status_loading">正在加载 %1$s…（仅首次较慢）</string>
+    <string name="status_listening">正在聆听 · %1$s</string>
+    <string name="status_finishing">正在识别…</string>
+    <string name="status_idle">点击麦克风开始说话</string>
+    <string name="status_auto_stopped">一段时间没有说话，已停止聆听</string>
+    <string name="status_error">出错：%1$s</string>
+    <string name="status_mic_error">麦克风不可用：%1$s</string>
+    <string name="status_silent_input">麦克风没有声音：可能被其他应用或通话占用，或在隐私设置里被关闭了</string>
+    <string name="status_crashed">识别进程崩溃了（键盘不受影响）。如果是 NPU 加载失败，下次会自动改用 CPU 模型（需已下载）。</string>
+    <string name="status_crashed_avoid_npu">识别进程再次崩溃，在键盘重启前改用 CPU 模型。</string>
+    <string name="status_unresponsive">识别引擎没有响应，已重启，请再试一次。</string>
+    <string name="status_dropped_editor_changed">识别完成前输入框已切换，最后一句没有上屏</string>
+    <string name="status_need_permission">需要麦克风权限</string>
+    <string name="status_need_model">模型未安装：%1$s</string>
+    <string name="status_password_field">密码框不使用语音输入</string>
+    <string name="status_cannot_undo">无法撤销：文字或光标已经变了</string>
+
+    <string name="action_grant_permission">授予权限</string>
+    <string name="action_download_model">去下载模型</string>
+    <string name="action_open_settings">语音设置</string>
+    <string name="action_switch_back">切回键盘</string>
+
+    <string name="permission_granted">已获得麦克风权限</string>
+    <string name="permission_denied_forever">请在应用设置中允许麦克风权限</string>
+
+    <!-- settings -->
+    <string name="cat_setup">开始使用</string>
+    <string name="setup_enable">1. 启用输入法</string>
+    <string name="setup_enable_no">尚未启用：点击后打开「离线语音输入」</string>
+    <string name="setup_enable_yes">已启用</string>
+    <string name="setup_enable_current">已启用，正在使用</string>
+    <string name="setup_enable_manual">请在 设置 → 系统设置 → 输入法 中启用</string>
+    <string name="setup_permission">2. 麦克风权限</string>
+    <string name="setup_permission_ok">已授权</string>
+    <string name="setup_permission_missing">未授权：点击申请</string>
+    <string name="setup_model">3. 识别模型</string>
+    <string name="setup_model_ok">%1$s · 已安装</string>
+    <string name="setup_model_missing">%1$s · 尚未下载，点击下载</string>
+    <string name="setup_try">4. 试一试</string>
+    <string name="setup_try_summary">打开一个输入框，切换到本输入法后直接说话</string>
+    <string name="try_hint">切换到「离线语音输入」后说话…</string>
+    <string name="try_switch_ime">选择输入法</string>
+    <string name="close">关闭</string>
+
+    <string name="cat_models">模型</string>
+    <string name="model_selected">使用中</string>
+    <string name="model_not_installed">未安装 · 约 %1$d MB</string>
+    <string name="model_installed">已安装 · %1$s</string>
+    <string name="model_failed">失败：%1$s</string>
+    <string name="model_npu_tripped">⚠ 上次加载时崩溃，目前改用 CPU 模型。点「自检」可重试。</string>
+    <string name="downloading">下载并解压中</string>
+    <string name="importing">导入中</string>
+    <string name="download">下载（约 %1$d MB）</string>
+    <string name="download_metered">当前在使用移动数据，仍要下载约 %1$d MB 吗？</string>
+    <string name="download_anyway">下载</string>
+    <string name="cancel_download">取消下载</string>
+    <string name="use_model">使用此模型</string>
+    <string name="self_test">自检</string>
+    <string name="self_test_running">正在加载模型并识别自带的测试音频…</string>
+    <string name="self_test_result">后端：%1$s\n模型加载：%2$d ms\n音频：%3$.1f 秒，解码：%4$d ms（RTF %5$.3f）\n\n识别结果：\n%6$s</string>
+    <string name="delete_model">删除</string>
+    <string name="delete_confirm">确定删除这个模型吗？</string>
+    <string name="import_archive">从文件导入模型</string>
+    <string name="import_archive_summary">选择在别处下载好的 sherpa-onnx .tar.bz2 模型包</string>
+    <string name="import_no_picker">本机没有可用的文件选择器</string>
+    <string name="import_done">已导入 %1$s</string>
+    <string name="import_failed">导入失败：%1$s</string>
+    <string name="download_prefix">下载加速前缀</string>
+    <string name="download_prefix_hint">可选。加在 GitHub 下载地址前面，例如 https://ghfast.top/ 。如果镜像需要把地址放在中间，用 {url} 占位。</string>
+    <string name="download_prefix_none">无（直接从 GitHub 下载）</string>
+    <string name="device_info">设备信息</string>
+    <string name="device_info_summary">SoC：%1$s · 识别库：%2$s · QNN HTP v75 运行库：%3$s</string>
+    <string name="yes">有</string>
+    <string name="no">无</string>
+
+    <string name="cat_recognition">识别</string>
+    <string name="pref_language">语言</string>
+    <string name="pref_itn">自动标点与数字格式化</string>
+    <string name="pref_itn_summary">自动加标点，读出来的数字转成阿拉伯数字</string>
+    <string name="pref_partial">边说边显示</string>
+    <string name="pref_partial_summary">说话时实时刷新当前句，停顿后整句上屏；关闭可再省一点电</string>
+    <string name="pref_silence">断句停顿时长（毫秒）</string>
+    <string name="pref_silence_summary">越短上屏越快，越长越不容易把一句话切断</string>
+    <string name="pref_idle_stop">多久没说话后停止聆听（秒）</string>
+    <string name="pref_idle_stop_summary">这么久没识别出内容就释放麦克风，省电</string>
+
+    <string name="cat_input">输入</string>
+    <string name="pref_auto_start">键盘弹出时自动开始聆听</string>
+    <string name="pref_auto_start_summary">只在键盘弹出或切换到另一个输入框时触发，应用刷新同一输入框时不会重新开始</string>
+    <string name="pref_auto_space">英文单词间自动加空格</string>
+    <string name="pref_auto_space_summary">英文紧跟在英文后面时自动补一个空格</string>
+    <string name="pref_drop_period">去掉句末句号</string>
+    <string name="pref_pause_media">聆听时暂停其他声音</string>
+    <string name="pref_pause_media_summary">外放的音乐会干扰识别；结束后播放器会自动继续</string>
+
+    <string name="cat_appearance">键盘</string>
+    <string name="pref_show_punctuation">显示标点行</string>
+    <string name="pref_haptics">按键振动</string>
+    <string name="pref_panel_height">键盘高度（dp）</string>
+    <string name="pref_panel_height_summary">下次弹出键盘时生效</string>
+
+    <string name="cat_about">关于</string>
+    <string name="about_version">版本</string>
+    <string name="about_source">源代码</string>
+    <string name="about_licenses">开源许可</string>
+    <string name="licenses_text">离线语音输入 — LGPL-2.1-or-later（识别部分的集成代码源自 fcitx5-android，LGPL-2.1-or-later）。\n\nsherpa-onnx — Apache-2.0\nONNX Runtime — MIT\nSilero VAD — MIT\n高通 AI Engine Direct（QNN）运行库 — 高通许可，按 sherpa-onnx 提供的版本分发\nAndroidX、Material Components、Material 图标 — Apache-2.0\n\n模型单独下载，沿用各自的许可：SenseVoice — FunASR 模型许可；Qwen3-ASR — Apache-2.0。</string>
+</resources>

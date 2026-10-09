@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- only used to download speech models; recognition is fully offline -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- to warn before downloading hundreds of MB over mobile data -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="false"
+        android:enableOnBackInvokedCallback="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AudioInput">
+
+        <service
+            android:name=".ime.VoiceImeService"
+            android:exported="true"
+            android:label="@string/ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
+        <!--
+          Offline speech recognizer (sherpa-onnx + Qualcomm QNN), isolated in its own process:
+          native failures during model initialization call exit() and must not take the input
+          method down with them.
+        -->
+        <service
+            android:name=".asr.VoiceRecognitionService"
+            android:exported="false"
+            android:process=":voice" />
+
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".settings.PermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=".permission"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- FastRPC library on Qualcomm devices, needed by the QNN HTP backend (error 14001 without it) -->
+        <uses-native-library
+            android:name="libcdsprpc.so"
+            android:required="false" />
+    </application>
+
+</manifest>

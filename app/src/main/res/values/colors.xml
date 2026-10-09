@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="launcher_background">#FF2F6BDB</color>
+    <color name="panel_background">#FFECEFF3</color>
+    <color name="panel_key">#FFFFFFFF</color>
+    <color name="panel_text">#FF1B1C1F</color>
+    <color name="panel_text_secondary">#FF5D6068</color>
+    <color name="panel_accent">#FF2F6BDB</color>
+    <color name="panel_on_accent">#FFFFFFFF</color>
+    <color name="panel_ripple">#22000000</color>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- same order as SpeechLanguage -->
+    <string-array name="language_entries">
+        <item>@string/lang_auto</item>
+        <item>@string/lang_zh</item>
+        <item>@string/lang_en</item>
+        <item>@string/lang_yue</item>
+        <item>@string/lang_ja</item>
+        <item>@string/lang_ko</item>
+    </string-array>
+    <string-array name="language_values" translatable="false">
+        <item>Auto</item>
+        <item>Chinese</item>
+        <item>English</item>
+        <item>Cantonese</item>
+        <item>Japanese</item>
+        <item>Korean</item>
+    </string-array>
+</resources>

@@ -1,0 +1,178 @@
+name: Build
+
+# - every push / pull request: build the APK and keep it as a workflow artifact
+# - a tag v*: also publish a GitHub release with the APK (requires the signing secrets)
+#
+# Signing secrets (Settings -> Secrets and variables -> Actions):
+#   SIGN_KEY_BASE64   base64 of the .jks keystore      (or KEYSTORE_BASE64 / SIGNING_KEY)
+#   SIGN_KEY_ALIAS    key alias                         (or KEY_ALIAS / ALIAS)
+#   SIGN_KEY_PWD      key password                      (or KEY_PASSWORD)
+#   SIGN_STORE_PWD    keystore password, if different   (or KEYSTORE_PASSWORD / KEY_STORE_PASSWORD)
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  NDK_VERSION: "28.0.13004108"
+  CMAKE_VERSION: "3.31.6"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            name="${GITHUB_REF_NAME#v}"
+          else
+            last=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo v0.0.0)
+            name="${last#v}-dev.${GITHUB_RUN_NUMBER}+$(git rev-parse --short HEAD)"
+          fi
+          base="${name%%[-+]*}"
+          IFS=. read -r major minor patch <<<"$base"
+          code=$(( ${major:-0} * 10000 + ${minor:-0} * 100 + ${patch:-0} ))
+          [ "$code" -gt 0 ] || code=1
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "Version $name ($code)"
+
+      # fail fast on Kotlin / resource errors before spending time on the native build
+      - name: Compile
+        run: ./gradlew --no-daemon :app:compileReleaseSources -PappVersionName=${{ steps.version.outputs.name }} -PappVersionCode=${{ steps.version.outputs.code }}
+
+      - name: Install NDK and CMake
+        run: |
+          sdkmanager --install "ndk;$NDK_VERSION" "cmake;$CMAKE_VERSION" > /dev/null
+          echo "ANDROID_NDK=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmake/$CMAKE_VERSION/bin" >> "$GITHUB_PATH"
+
+      - name: Cache native libraries
+        uses: actions/cache@v5
+        with:
+          path: |
+            build/voice-native/sherpa-libs-*
+            build/voice-native/qnn-libs-*
+          key: voice-native-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/prepare-native.sh') }}
+
+      - name: Build sherpa-onnx (QNN) and fetch the QNN runtime
+        env:
+          # some of sherpa-onnx's dependencies declare an old cmake_minimum_required
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+        run: ./scripts/prepare-native.sh
+
+      - name: Signing key
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          KEY_B64: ${{ secrets.SIGN_KEY_BASE64 || secrets.KEYSTORE_BASE64 || secrets.SIGNING_KEY }}
+          KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS || secrets.ALIAS }}
+          KEY_PWD: ${{ secrets.SIGN_KEY_PWD || secrets.KEY_PASSWORD }}
+          STORE_PWD: ${{ secrets.SIGN_STORE_PWD || secrets.KEYSTORE_PASSWORD || secrets.KEY_STORE_PASSWORD }}
+        run: |
+          # names only, never values
+          echo "Available secrets: $(echo "$SECRETS_JSON" | jq -r 'keys | join(", ")')"
+          if [ -n "$KEY_B64" ]; then
+            echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/sign.jks"
+            [ -n "$KEY_PWD" ] || KEY_PWD="$STORE_PWD"
+            {
+              echo "SIGN_KEY_FILE=$RUNNER_TEMP/sign.jks"
+              echo "SIGN_KEY_ALIAS=$KEY_ALIAS"
+              echo "SIGN_KEY_PWD=$KEY_PWD"
+              echo "SIGN_STORE_PWD=$STORE_PWD"
+            } >> "$GITHUB_ENV"
+            if [ -z "$KEY_ALIAS" ]; then
+              # a keystore with a single key: take its alias
+              alias=$(keytool -list -keystore "$RUNNER_TEMP/sign.jks" -storepass "${STORE_PWD:-$KEY_PWD}" 2>/dev/null \
+                | awk -F, '/PrivateKeyEntry/ {print $1; exit}')
+              echo "SIGN_KEY_ALIAS=$alias" >> "$GITHUB_ENV"
+            fi
+            echo "Signing with the release key"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "::error::No signing key secret found; refusing to publish a release signed with a throw-away key"
+            exit 1
+          else
+            echo "::warning::No signing key secret found, the APK is signed with a debug key"
+          fi
+
+      - name: Build APK
+        run: ./gradlew --no-daemon :app:assembleRelease -PappVersionName=${{ steps.version.outputs.name }} -PappVersionCode=${{ steps.version.outputs.code }}
+
+      - name: Check APK
+        id: apk
+        run: |
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/release/*.apk)
+          [ ${#apks[@]} -eq 1 ] || { echo "expected one APK, got: ${apks[*]}"; exit 1; }
+          apk="${apks[0]}"
+          echo "--- native libraries"
+          unzip -l "$apk" | grep 'lib/' || true
+          for so in libsherpa-onnx-jni.so libonnxruntime.so libQnnHtp.so libQnnSystem.so libQnnHtpV75Stub.so libQnnHtpV75Skel.so; do
+            unzip -l "$apk" | grep -q "lib/arm64-v8a/$so" || { echo "::error::$so missing from the APK"; exit 1; }
+          done
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "--- manifest"
+          "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -E 'extractNativeLibs|package=|versionName|versionCode|targetSdkVersion' || true
+          # the NPU needs the libraries extracted to a real directory
+          "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -q 'extractNativeLibs.*=true' \
+            || { echo "::error::extractNativeLibs is not true"; exit 1; }
+          echo "--- signature"
+          "$BT/apksigner" verify --print-certs "$apk" | grep -E 'Signer|SHA-256' || true
+          mkdir -p dist
+          out="dist/AudioInput-${{ steps.version.outputs.name }}-arm64-v8a.apk"
+          out="${out//+/_}"
+          cp "$apk" "$out"
+          ls -l dist
+          echo "file=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: AudioInput-${{ steps.version.outputs.name }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=".github/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$notes" ]; then
+            args=(--notes-file "$notes")
+          else
+            args=(--generate-notes)
+          fi
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.apk --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.apk --title "$GITHUB_REF_NAME" --verify-tag "${args[@]}"
+          fi

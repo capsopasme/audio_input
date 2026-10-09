@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A single "voice" mode subtype:
+  - mode "voice" lets keyboards with a voice key that looks for a voice input method
+    (AOSP keyboard, HeliBoard, FlorisBoard...) switch straight to this one;
+  - not auxiliary, so it stays in the "next input method" rotation (Gboard's globe key,
+    the system's switcher) and switchToPreviousInputMethod() from here goes back properly;
+  - overridesImplicitlyEnabledSubtype: enabled whatever the system language is.
+-->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:icon="@mipmap/ic_launcher"
+    android:settingsActivity="io.github.capsopasme.audioinput.settings.SettingsActivity"
+    android:supportsSwitchingToNextInputMethod="true">
+    <subtype
+        android:icon="@drawable/ic_mic"
+        android:imeSubtypeLocale="zh_CN"
+        android:imeSubtypeMode="voice"
+        android:isAsciiCapable="false"
+        android:isAuxiliary="false"
+        android:label="@string/subtype_voice"
+        android:languageTag="zh-CN"
+        android:overridesImplicitlyEnabledSubtype="true"
+        android:subtypeId="0x61756469" />
+</input-method>

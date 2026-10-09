@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keys and defaults must match settings/Prefs.kt -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:key="cat_setup"
+        app:title="@string/cat_setup">
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="setup_enable"
+            app:title="@string/setup_enable" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="setup_permission"
+            app:title="@string/setup_permission" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="setup_model"
+            app:title="@string/setup_model" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="setup_try"
+            app:summary="@string/setup_try_summary"
+            app:title="@string/setup_try" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:key="cat_models"
+        app:title="@string/cat_models">
+        <!-- one entry per model is added in code, in front of these -->
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="import_archive"
+            app:order="100"
+            app:summary="@string/import_archive_summary"
+            app:title="@string/import_archive" />
+        <EditTextPreference
+            app:defaultValue=""
+            app:dialogMessage="@string/download_prefix_hint"
+            app:iconSpaceReserved="false"
+            app:key="download_prefix"
+            app:order="101"
+            app:title="@string/download_prefix" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="device_info"
+            app:order="102"
+            app:selectable="false"
+            app:title="@string/device_info" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:title="@string/cat_recognition">
+        <ListPreference
+            app:defaultValue="Auto"
+            app:entries="@array/language_entries"
+            app:entryValues="@array/language_values"
+            app:iconSpaceReserved="false"
+            app:key="language"
+            app:title="@string/pref_language"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="itn"
+            app:summary="@string/pref_itn_summary"
+            app:title="@string/pref_itn" />
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="partial"
+            app:summary="@string/pref_partial_summary"
+            app:title="@string/pref_partial" />
+        <SeekBarPreference
+            android:max="2000"
+            app:defaultValue="600"
+            app:iconSpaceReserved="false"
+            app:key="silence_ms"
+            app:min="200"
+            app:seekBarIncrement="100"
+            app:showSeekBarValue="true"
+            app:summary="@string/pref_silence_summary"
+            app:title="@string/pref_silence" />
+        <SeekBarPreference
+            android:max="120"
+            app:defaultValue="20"
+            app:iconSpaceReserved="false"
+            app:key="idle_stop_s"
+            app:min="5"
+            app:seekBarIncrement="5"
+            app:showSeekBarValue="true"
+            app:summary="@string/pref_idle_stop_summary"
+            app:title="@string/pref_idle_stop" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:title="@string/cat_input">
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="auto_start"
+            app:summary="@string/pref_auto_start_summary"
+            app:title="@string/pref_auto_start" />
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="auto_space"
+            app:summary="@string/pref_auto_space_summary"
+            app:title="@string/pref_auto_space" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:iconSpaceReserved="false"
+            app:key="drop_trailing_period"
+            app:title="@string/pref_drop_period" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:iconSpaceReserved="false"
+            app:key="pause_media"
+            app:summary="@string/pref_pause_media_summary"
+            app:title="@string/pref_pause_media" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:title="@string/cat_appearance">
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="show_punctuation"
+            app:title="@string/pref_show_punctuation" />
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="haptics"
+            app:title="@string/pref_haptics" />
+        <SeekBarPreference
+            android:max="400"
+            app:defaultValue="250"
+            app:iconSpaceReserved="false"
+            app:key="panel_height_dp"
+            app:min="180"
+            app:seekBarIncrement="10"
+            app:showSeekBarValue="true"
+            app:summary="@string/pref_panel_height_summary"
+            app:title="@string/pref_panel_height" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:title="@string/cat_about">
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="about_version"
+            app:title="@string/about_version" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="about_source"
+            app:summary="https://github.com/capsopasme/audio_input"
+            app:title="@string/about_source" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="about_licenses"
+            app:title="@string/about_licenses" />
+    </PreferenceCategory>
+</PreferenceScreen>

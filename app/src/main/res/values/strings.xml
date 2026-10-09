@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Audio Input</string>
+    <string name="ime_name">Offline voice input</string>
+    <string name="subtype_voice">Voice</string>
+
+    <!-- models -->
+    <string name="model_sense_voice_qnn">SenseVoice · Qualcomm NPU (Snapdragon 8 Gen 3)</string>
+    <string name="model_sense_voice_qnn_desc">Recommended on SM8650. Runs on the NPU: fast and the most power efficient. Chinese / English / Cantonese / Japanese / Korean, punctuation included.</string>
+    <string name="model_sense_voice_cpu">SenseVoice · CPU</string>
+    <string name="model_sense_voice_cpu_desc">Same model on the CPU, works on any phone. Also the automatic fallback when the NPU fails.</string>
+    <string name="model_qwen3_asr">Qwen3-ASR 0.6B · CPU</string>
+    <string name="model_qwen3_asr_desc">Most accurate, but large and slower (about 1–2 s per sentence, no live preview).</string>
+
+    <string name="lang_auto">Automatic (mixed Chinese / English)</string>
+    <string name="lang_zh">Mandarin</string>
+    <string name="lang_en">English</string>
+    <string name="lang_yue">Cantonese</string>
+    <string name="lang_ja">Japanese</string>
+    <string name="lang_ko">Korean</string>
+
+    <string name="backend_npu">NPU (QNN HTP)</string>
+    <string name="backend_cpu">CPU</string>
+    <string name="backend_cpu_fallback">CPU (NPU unavailable, fell back)</string>
+
+    <string name="error_model_missing">Model files missing: %1$s</string>
+    <string name="error_init_failed">Could not load the model. %1$s</string>
+    <string name="error_qnn_soc">The NPU model is built for the Snapdragon 8 Gen 3 (SM8650); this phone has %1$s. Please use a CPU model.</string>
+    <string name="error_qnn_libs">This build does not include the QNN runtime: %1$s</string>
+    <string name="error_qnn_crashed">Loading the NPU model crashed the recognizer last time, so the NPU is paused. Download “SenseVoice · CPU” as a fallback, or run the self test on the NPU model in settings to retry.</string>
+    <string name="error_interrupted">Interrupted by another voice session (e.g. the self test in settings)</string>
+    <string name="error_no_test_wav">The model has no test audio</string>
+
+    <!-- panel -->
+    <string name="panel_switch_ime">Back to the previous keyboard (long press: choose keyboard)</string>
+    <string name="panel_settings">Voice input settings</string>
+    <string name="panel_start">Start listening</string>
+    <string name="panel_stop">Stop listening</string>
+    <string name="panel_undo">Undo last sentence</string>
+    <string name="panel_backspace">Delete</string>
+    <string name="panel_space">Space</string>
+    <string name="panel_enter">Enter</string>
+    <string name="panel_enter_search">Search</string>
+    <string name="panel_enter_send">Send</string>
+    <string name="panel_enter_go">Go</string>
+    <string name="panel_enter_next">Next</string>
+    <string name="panel_enter_done">Done</string>
+
+    <string name="status_starting">Starting…</string>
+    <string name="status_loading">Loading %1$s… (only slow the first time)</string>
+    <string name="status_listening">Listening · %1$s</string>
+    <string name="status_finishing">Recognizing…</string>
+    <string name="status_idle">Tap the microphone to speak</string>
+    <string name="status_auto_stopped">Stopped listening after a while of silence</string>
+    <string name="status_error">Error: %1$s</string>
+    <string name="status_mic_error">Microphone unavailable: %1$s</string>
+    <string name="status_silent_input">No sound from the microphone: another app (or a call) is using it, or it is turned off in privacy settings</string>
+    <string name="status_crashed">The recognizer crashed (the keyboard is fine). If the NPU failed to load, the CPU model is used next time if it is downloaded.</string>
+    <string name="status_crashed_avoid_npu">The recognizer crashed again; using the CPU model until the keyboard restarts.</string>
+    <string name="status_unresponsive">The recognizer stopped responding and was restarted. Try again.</string>
+    <string name="status_dropped_editor_changed">The text field changed before recognition finished; the last sentence was not inserted</string>
+    <string name="status_need_permission">Microphone permission is needed</string>
+    <string name="status_need_model">Model not installed: %1$s</string>
+    <string name="status_password_field">Voice input is off in password fields</string>
+    <string name="status_cannot_undo">Cannot undo: the text or the cursor changed</string>
+
+    <string name="action_grant_permission">Grant permission</string>
+    <string name="action_download_model">Download a model</string>
+    <string name="action_open_settings">Voice settings</string>
+    <string name="action_switch_back">Back to the keyboard</string>
+
+    <string name="permission_granted">Microphone permission granted</string>
+    <string name="permission_denied_forever">Please allow the microphone in the app settings</string>
+
+    <!-- settings -->
+    <string name="cat_setup">Getting started</string>
+    <string name="setup_enable">1. Enable the input method</string>
+    <string name="setup_enable_no">Not enabled yet: tap and switch on “Offline voice input”</string>
+    <string name="setup_enable_yes">Enabled</string>
+    <string name="setup_enable_current">Enabled and currently in use</string>
+    <string name="setup_enable_manual">Open Settings → System → Keyboard to enable it</string>
+    <string name="setup_permission">2. Microphone permission</string>
+    <string name="setup_permission_ok">Granted</string>
+    <string name="setup_permission_missing">Not granted: tap to allow</string>
+    <string name="setup_model">3. Speech model</string>
+    <string name="setup_model_ok">%1$s · installed</string>
+    <string name="setup_model_missing">%1$s · not downloaded yet, tap to download</string>
+    <string name="setup_try">4. Try it</string>
+    <string name="setup_try_summary">Opens a text box; switch to this input method and speak</string>
+    <string name="try_hint">Switch to “Offline voice input” and speak…</string>
+    <string name="try_switch_ime">Choose input method</string>
+    <string name="close">Close</string>
+
+    <string name="cat_models">Models</string>
+    <string name="model_selected">in use</string>
+    <string name="model_not_installed">Not installed · about %1$d MB</string>
+    <string name="model_installed">Installed · %1$s</string>
+    <string name="model_failed">Failed: %1$s</string>
+    <string name="model_npu_tripped">⚠ Loading it crashed last time: the CPU model is used instead. Run the self test to retry.</string>
+    <string name="downloading">Downloading and unpacking</string>
+    <string name="importing">Importing</string>
+    <string name="download">Download (about %1$d MB)</string>
+    <string name="download_metered">You are on mobile data. Download about %1$d MB anyway?</string>
+    <string name="download_anyway">Download</string>
+    <string name="cancel_download">Cancel download</string>
+    <string name="use_model">Use this model</string>
+    <string name="self_test">Self test</string>
+    <string name="self_test_running">Loading the model and recognizing its test audio…</string>
+    <string name="self_test_result">Backend: %1$s\nModel load: %2$d ms\nAudio: %3$.1f s, decoding: %4$d ms (RTF %5$.3f)\n\nResult:\n%6$s</string>
+    <string name="delete_model">Delete</string>
+    <string name="delete_confirm">Delete this model?</string>
+    <string name="import_archive">Import a model file</string>
+    <string name="import_archive_summary">Pick a sherpa-onnx .tar.bz2 model archive downloaded elsewhere</string>
+    <string name="import_no_picker">No file picker available</string>
+    <string name="import_done">Imported %1$s</string>
+    <string name="import_failed">Import failed: %1$s</string>
+    <string name="download_prefix">Download mirror prefix</string>
+    <string name="download_prefix_hint">Optional. Put in front of the GitHub download URL, e.g. https://ghfast.top/ . Use {url} where the mirror wants the address in the middle.</string>
+    <string name="download_prefix_none">None (download from GitHub directly)</string>
+    <string name="device_info">Device</string>
+    <string name="device_info_summary">SoC: %1$s · recognizer library: %2$s · QNN HTP v75 runtime: %3$s</string>
+    <string name="yes">yes</string>
+    <string name="no">no</string>
+
+    <string name="cat_recognition">Recognition</string>
+    <string name="pref_language">Language</string>
+    <string name="pref_itn">Punctuation and number formatting</string>
+    <string name="pref_itn_summary">Adds punctuation and writes spoken numbers as digits</string>
+    <string name="pref_partial">Live preview</string>
+    <string name="pref_partial_summary">Shows the sentence while you speak; it is inserted after a pause. Off saves a little power.</string>
+    <string name="pref_silence">Pause that ends a sentence (ms)</string>
+    <string name="pref_silence_summary">Shorter inserts sooner, longer cuts sentences less often</string>
+    <string name="pref_idle_stop">Stop listening after silence (s)</string>
+    <string name="pref_idle_stop_summary">Releases the microphone when nothing has been recognized for this long, to save power</string>
+
+    <string name="cat_input">Input</string>
+    <string name="pref_auto_start">Start listening when the keyboard opens</string>
+    <string name="pref_auto_start_summary">Only when the keyboard appears or moves to another field, not when an app refreshes the same field</string>
+    <string name="pref_auto_space">Space between English words</string>
+    <string name="pref_auto_space_summary">Adds a space when English follows English</string>
+    <string name="pref_drop_period">Remove the period at the end of sentences</string>
+    <string name="pref_pause_media">Pause other audio while listening</string>
+    <string name="pref_pause_media_summary">Music from the speaker hurts recognition; players resume afterwards</string>
+
+    <string name="cat_appearance">Keyboard</string>
+    <string name="pref_show_punctuation">Show the punctuation row</string>
+    <string name="pref_haptics">Vibrate on taps</string>
+    <string name="pref_panel_height">Keyboard height (dp)</string>
+    <string name="pref_panel_height_summary">Applied the next time the keyboard opens</string>
+
+    <string name="cat_about">About</string>
+    <string name="about_version">Version</string>
+    <string name="about_source">Source code</string>
+    <string name="about_licenses">Open source licenses</string>
+    <string name="licenses_text">Audio Input — LGPL-2.1-or-later (the recognizer integration is derived from fcitx5-android, LGPL-2.1-or-later).\n\nsherpa-onnx — Apache-2.0\nONNX Runtime — MIT\nSilero VAD — MIT\nQualcomm AI Engine Direct (QNN) runtime — Qualcomm license, redistributed as provided by sherpa-onnx\nAndroidX, Material Components, Material icons — Apache-2.0\n\nModels are downloaded separately and keep their own licenses: SenseVoice — FunASR model license; Qwen3-ASR — Apache-2.0.</string>
+</resources>
