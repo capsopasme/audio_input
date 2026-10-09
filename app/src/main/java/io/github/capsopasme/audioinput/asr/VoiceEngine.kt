@@ -104,6 +104,14 @@ class VoiceEngine private constructor(
                     throw e
                 }
                 return engine
+            } catch (e: Exception) {
+                // A failure QNN reports properly (wrong SoC, no DSP access, runtime mismatch):
+                // the CPU model still gives the user a working keyboard. An explicit self test
+                // reports the NPU's own error instead.
+                val cpu = SpeechModel.SenseVoiceCpu
+                if (forceQnn || !ModelPaths.isInstalled(ctx, cpu)) throw e
+                Log.w(TAG, "NPU model failed to load, using the CPU model", e)
+                return load(ctx, key, cpu, ctx.getString(R.string.backend_cpu_fallback))
             } finally {
                 // only reached if the process survived; an exception (missing files, wrong SoC)
                 // is reported normally and doesn't disable the NPU
