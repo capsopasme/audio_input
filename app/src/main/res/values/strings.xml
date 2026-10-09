@@ -56,7 +56,7 @@
     <string name="status_mic_error">Microphone unavailable: %1$s</string>
     <string name="status_silent_input">No sound from the microphone: another app (or a call) is using it, or it is turned off in privacy settings</string>
     <string name="status_crashed">The recognizer crashed (the keyboard is fine). If the NPU failed to load, the CPU model is used next time if it is downloaded.</string>
-    <string name="status_crashed_avoid_npu">The recognizer crashed again; using the CPU model until the keyboard restarts.</string>
+    <string name="status_crashed_avoid_npu">The recognizer crashed again; using the CPU model for now. A passing self test of the NPU model in settings switches back.</string>
     <string name="status_unresponsive">The recognizer stopped responding and was restarted. Try again.</string>
     <string name="status_dropped_editor_changed">The text field changed before recognition finished; the last sentence was not inserted</string>
     <string name="status_need_permission">Microphone permission is needed</string>

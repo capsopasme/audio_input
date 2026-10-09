@@ -80,12 +80,8 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
     /** texts committed by recognition into the current editor, newest last */
     private val undoStack = ArrayDeque<String>()
 
-    /**
-     * The recognizer died during a session twice in a row: stop using the NPU until the keyboard
-     * process restarts (a model that crashes while recognizing would otherwise kill every session).
-     */
-    private var crashesInARow = 0
-    private var avoidQnn = false
+    /** model of the current / last session; the setting may change while it runs */
+    private var sessionModel: SpeechModel = prefs.model
 
     @Volatile
     private var shownLevel = -1
@@ -119,7 +115,7 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
 
         override fun onFinal(text: String) {
             partial = ""
-            crashesInARow = 0
+            NpuHealth.crashesInARow = 0
             if (state == State.Listening) armListenBackstop()
             val ic = service.currentInputConnection
             if (service.editorGeneration != sessionEditor || ic == null) {
@@ -162,9 +158,11 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         override fun onServiceCrashed() {
             // the client has already dropped its binding
             endSession()
-            crashesInARow++
-            if (crashesInARow >= 2 && prefs.model.isQnn && !avoidQnn) {
-                avoidQnn = true
+            // A model that crashes while recognizing would otherwise kill every session: after
+            // the second crash in a row use the CPU model (see NpuHealth).
+            NpuHealth.crashesInARow++
+            if (NpuHealth.crashesInARow >= 2 && sessionModel.isQnn && !NpuHealth.avoidQnn) {
+                NpuHealth.avoidQnn = true
                 status = ctx.getString(R.string.status_crashed_avoid_npu)
             } else {
                 status = ctx.getString(R.string.status_crashed)
@@ -244,6 +242,8 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
             render()
             return
         }
+        // e.g. the password field's "back to the keyboard", from the field before this one
+        action = null
         when (state) {
             State.Loading, State.Listening -> {
                 // the same editor restarted (or the view was re-created): keep going
@@ -254,9 +254,11 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
                 stopListening()
                 startWhenIdle = autoStart
             }
-            State.Finishing -> startWhenIdle = autoStart
+            State.Finishing -> {
+                startWhenIdle = autoStart
+                status = ctx.getString(R.string.status_finishing)
+            }
             State.Idle -> {
-                action = null
                 if (checkReady()) {
                     if (autoStart) {
                         startListening()
@@ -318,7 +320,7 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
 
     private fun preload() {
         if (state != State.Idle) return
-        client.preload(prefs.model, prefs.language, prefs.itn, prefs.silenceMs, avoidQnn)
+        client.preload(prefs.model, prefs.language, prefs.itn, prefs.silenceMs, NpuHealth.avoidQnn)
     }
 
     private fun startListening() {
@@ -336,6 +338,7 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         state = State.Loading
         status = ctx.getString(R.string.status_starting)
         val model = prefs.model
+        sessionModel = model
         val session = client.start(
             model = model,
             language = prefs.language,
@@ -343,7 +346,7 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
             partial = prefs.partial,
             silenceMs = prefs.silenceMs,
             idleStopMs = prefs.idleStopSeconds * 1000,
-            avoidQnn = avoidQnn,
+            avoidQnn = NpuHealth.avoidQnn,
         )
         // the recognizer can't be reached: its error is already on the way
         if (session == 0) {
@@ -372,10 +375,16 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         focus.abandon()
         main.removeCallbacks(listenBackstop)
         if (client.isSessionActive) {
+            // Stopped before the model finished loading (e.g. the keyboard was hidden right
+            // away): the load still has to finish before the last sentence can be decoded, so
+            // keep its full time. A shorter deadline would kill a slow but healthy first load,
+            // and an interrupted NPU load counts as a crash.
+            val seconds = sessionModel.finishTimeoutSeconds +
+                    if (state == State.Loading) sessionModel.loadTimeoutSeconds else 0
             state = State.Finishing
             status = ctx.getString(R.string.status_finishing)
             if (!pending) client.stop(id)
-            armWatchdog(if (prefs.model == SpeechModel.Qwen3Asr) 90 else 25)
+            armWatchdog(seconds)
         } else {
             endSession()
         }
@@ -468,6 +477,11 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
 
     private fun isAsciiWordChar(c: Char) = c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9'
 
+    /** the panel shows only the tail of the transcript, older text needn't stay in memory */
+    private fun trimTranscript() {
+        if (committed.length > MAX_TRANSCRIPT) committed.delete(0, committed.length - MAX_TRANSCRIPT / 2)
+    }
+
     private fun commitRecognized(ic: InputConnection, raw: String) {
         var text = raw.trim()
         if (prefs.dropTrailingPeriod) text = text.trimEnd('。', '.', '．')
@@ -483,6 +497,7 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
             return
         }
         committed.append(text)
+        trimTranscript()
         undoStack.addLast(text)
         while (undoStack.size > MAX_UNDO) undoStack.removeFirst()
     }
@@ -491,6 +506,7 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         val ic = service.currentInputConnection ?: return
         ic.commitText(text, 1)
         committed.append(text)
+        trimTranscript()
         renderTranscript()
     }
 
@@ -601,13 +617,26 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
     }
 
     private fun switchBack() {
+        // leaving: a restart queued for another field must not open the microphone on the way out
+        startWhenIdle = false
+        if (state == State.Finishing && switchAfterFinish) {
+            // tapped again while waiting: the user would rather not wait
+            switchAfterFinish = false
+            main.removeCallbacks(switchTimeout)
+            doSwitchBack()
+            return
+        }
         if (state == State.Loading || state == State.Listening) stopListening()
         if (state == State.Finishing) {
             // Switching away destroys this input method right away, which would throw away the
-            // sentence still being decoded. Let it land in the editor first.
+            // sentence still being decoded. Let it land in the editor first (a slow model needs
+            // longer for a long sentence; tapping again switches at once).
             switchAfterFinish = true
             main.removeCallbacks(switchTimeout)
-            main.postDelayed(switchTimeout, SWITCH_WAIT_MS)
+            main.postDelayed(
+                switchTimeout,
+                if (sessionModel.fastEnoughForPartial) SWITCH_WAIT_MS else SWITCH_WAIT_SLOW_MS
+            )
             return
         }
         doSwitchBack()
@@ -669,7 +698,9 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         private const val TAG = "VoiceController"
         private const val IDLE_UNBIND_DELAY_MS = 10_000L
         private const val MAX_UNDO = 20
+        private const val MAX_TRANSCRIPT = 4_000
         private const val SWITCH_WAIT_MS = 4_000L
+        private const val SWITCH_WAIT_SLOW_MS = 12_000L
 
         fun isPassword(info: EditorInfo): Boolean {
             val cls = info.inputType and EditorInfo.TYPE_MASK_CLASS

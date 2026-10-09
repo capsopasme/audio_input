@@ -12,10 +12,12 @@ import io.github.capsopasme.audioinput.asr.ModelPaths
 import io.github.capsopasme.audioinput.asr.SpeechModel
 import io.github.capsopasme.audioinput.model.archive.TarExtractor
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,6 +56,9 @@ object ModelManager {
 
     @Volatile
     private var importJob: Job? = null
+
+    /** moving a model into place and deleting one never interleave (download vs import vs delete) */
+    private val installLock = Any()
 
     private val _states = MutableStateFlow<Map<SpeechModel, State>>(emptyMap())
     val states: StateFlow<Map<SpeechModel, State>> = _states.asStateFlow()
@@ -126,8 +131,10 @@ object ModelManager {
      */
     private fun cleanupStaleTemp(ctx: Context) {
         ModelPaths.rootDir(ctx).listFiles()?.forEach { f ->
+            // Jobs are registered before they start (CoroutineStart.LAZY): a job that exists and
+            // hasn't completed owns its temp directory, even if it hasn't started running yet.
             val stale = when {
-                f.name == ".tmp-import" -> importJob?.isActive != true
+                f.name == ".tmp-import" -> importJob?.isCompleted != false
                 f.name.startsWith(".tmp-") -> {
                     val m = SpeechModel.fromDirName(f.name.removePrefix(".tmp-"))
                     m == null || jobs[m]?.isCompleted != false
@@ -147,11 +154,17 @@ object ModelManager {
     }
 
     fun delete(ctx: Context, model: SpeechModel) {
-        cancel(model)
+        val running = jobs[model]
+        running?.cancel()
         val appCtx = ctx.applicationContext
         setState(model, State.NotInstalled)
         scope.launch {
-            ModelPaths.modelDir(appCtx, model).deleteRecursively()
+            // a cancelled download may be just moving its files into place: let it end first,
+            // or the model would reappear after being deleted
+            running?.join()
+            synchronized(installLock) {
+                ModelPaths.modelDir(appCtx, model).deleteRecursively()
+            }
             setState(model, diskState(appCtx, model))
         }
     }
@@ -170,7 +183,9 @@ object ModelManager {
         }
         val previous = jobs[model]
         setState(model, State.Working(Phase.Download, 0, model.downloadSizeMb * MB))
-        jobs[model] = scope.launch {
+        // registered before it starts, so that a concurrent refresh() never takes its temp
+        // directory for a leftover and deletes it
+        val task = scope.launch(start = CoroutineStart.LAZY) {
             // a cancelled download of the same model may still be winding down
             previous?.join()
             val tmp = File(ModelPaths.rootDir(appCtx), ".tmp-${model.dirName}")
@@ -195,6 +210,8 @@ object ModelManager {
                         isCancelled = { job?.isActive != true }
                     )
                 }
+                // cancelled (or deleted) while the last bytes came in: don't install
+                currentCoroutineContext().ensureActive()
                 installFromTmp(appCtx, tmp, model)
                 setState(model, diskState(appCtx, model))
             } catch (e: Throwable) {
@@ -210,6 +227,8 @@ object ModelManager {
                 currentCoroutineContext()[Job]?.let { jobs.remove(model, it) }
             }
         }
+        jobs[model] = task
+        task.start()
     }
 
     /**
@@ -219,7 +238,7 @@ object ModelManager {
     fun importArchive(ctx: Context, uri: Uri, onFinished: (Result<SpeechModel>) -> Unit) {
         if (importJob?.isActive == true) return
         val appCtx = ctx.applicationContext
-        importJob = scope.launch {
+        val task = scope.launch(start = CoroutineStart.LAZY) {
             val tmp = File(ModelPaths.rootDir(appCtx), ".tmp-import")
             val result = runCatching {
                 tmp.deleteRecursively()
@@ -260,6 +279,8 @@ object ModelManager {
             result.exceptionOrNull()?.let { Log.w(TAG, "Failed to import speech model", it) }
             onFinished(result)
         }
+        importJob = task
+        task.start()
     }
 
     private fun installFromTmp(ctx: Context, tmp: File, model: SpeechModel) {
@@ -267,9 +288,11 @@ object ModelManager {
         val missing = model.requiredFiles.filterNot { File(extracted, it).isFile }
         if (missing.isNotEmpty()) throw IOException("Archive is missing: ${missing.joinToString()}")
         val dest = ModelPaths.modelDir(ctx, model)
-        dest.deleteRecursively()
-        dest.parentFile?.mkdirs()
-        if (!extracted.renameTo(dest)) throw IOException("Failed to move the model into place")
+        synchronized(installLock) {
+            dest.deleteRecursively()
+            dest.parentFile?.mkdirs()
+            if (!extracted.renameTo(dest)) throw IOException("Failed to move the model into place")
+        }
         tmp.deleteRecursively()
     }
 
