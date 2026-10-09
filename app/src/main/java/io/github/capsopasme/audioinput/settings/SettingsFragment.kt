@@ -39,6 +39,7 @@ import io.github.capsopasme.audioinput.asr.ModelPaths
 import io.github.capsopasme.audioinput.asr.QnnCrashGuard
 import io.github.capsopasme.audioinput.asr.SpeechModel
 import io.github.capsopasme.audioinput.asr.VoiceClient
+import io.github.capsopasme.audioinput.ime.NpuHealth
 import io.github.capsopasme.audioinput.model.ModelManager
 import io.github.capsopasme.audioinput.model.ModelManager.State
 import kotlinx.coroutines.launch
@@ -66,6 +67,16 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 mainHandler.post {
                     result
                         .onSuccess {
+                            // like a download: if the selected model isn't installed, the imported
+                            // one becomes the active one, so the keyboard works right away
+                            val p = Prefs.get(appCtx)
+                            if (!ModelPaths.isInstalled(appCtx, p.model)) {
+                                p.model = it
+                                if (isAdded) {
+                                    updateModelSummaries(ModelManager.states.value)
+                                    updateModelDependentPrefs()
+                                }
+                            }
                             Toast.makeText(appCtx, appCtx.getString(R.string.import_done, appCtx.getString(it.titleRes)), Toast.LENGTH_SHORT).show()
                         }
                         .onFailure {
@@ -332,9 +343,31 @@ class SettingsFragment : PreferenceFragmentCompat() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(model.titleRes)
             .setMessage(R.string.delete_confirm)
-            .setPositiveButton(R.string.delete_model) { _, _ -> ModelManager.delete(requireContext(), model) }
+            .setPositiveButton(R.string.delete_model) { _, _ ->
+                val ctx = requireContext()
+                ModelManager.delete(ctx, model)
+                if (prefs.model == model) {
+                    // keep the keyboard working with another installed model, if there is one
+                    SpeechModel.entries
+                        .firstOrNull { it != model && ModelPaths.isInstalled(ctx, it) }
+                        ?.let { selectModel(it) }
+                }
+            }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    /**
+     * The self test never answered (a native call that doesn't return, e.g. a wedged DSP): kill
+     * the recognizer process, like the keyboard's watchdog does, instead of waiting forever.
+     */
+    private val selfTestTimeout = Runnable {
+        val client = testClient ?: return@Runnable
+        client.killService()
+        testDialog?.dismiss()
+        showResult(getString(R.string.status_unresponsive))
+        finishTest()
+        updateModelSummaries(ModelManager.states.value)
     }
 
     private fun runSelfTest(model: SpeechModel) {
@@ -345,6 +378,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 text: String, backend: String, loadMillis: Long, decodeMillis: Long, audioMillis: Long
             ) {
                 testDialog?.dismiss()
+                // the test forces the NPU (no CPU fallback), so passing means it works again
+                if (model.isQnn) NpuHealth.reset()
                 val rtf = if (audioMillis > 0) decodeMillis.toFloat() / audioMillis else 0f
                 showResult(
                     getString(R.string.self_test_result, backend, loadMillis, audioMillis / 1000f, decodeMillis, rtf, text)
@@ -375,9 +410,12 @@ class SettingsFragment : PreferenceFragmentCompat() {
             .setNegativeButton(android.R.string.cancel) { _, _ -> finishTest() }
             .show()
         client.selfTest(model, prefs.language, prefs.itn)
+        // loading, then decoding the test audio twice
+        mainHandler.postDelayed(selfTestTimeout, (model.loadTimeoutSeconds + SELF_TEST_DECODE_SECONDS) * 1000L)
     }
 
     private fun finishTest() {
+        mainHandler.removeCallbacks(selfTestTimeout)
         testClient?.unbind()
         testClient = null
     }
@@ -413,5 +451,6 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     companion object {
         const val SOURCE_URL = "https://github.com/capsopasme/audio_input"
+        private const val SELF_TEST_DECODE_SECONDS = 60
     }
 }

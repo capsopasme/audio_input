@@ -4,8 +4,13 @@
  */
 package io.github.capsopasme.audioinput.asr
 
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.content.Context
+import android.os.Build
+import android.os.Process
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineQwen3AsrModelConfig
@@ -93,7 +98,7 @@ class VoiceEngine private constructor(
                 throw EngineException(ctx.getString(R.string.error_qnn_crashed))
             }
             guard.arm()
-            try {
+            val failure: Exception = try {
                 val engine = load(ctx, key, key.model, ctx.getString(R.string.backend_npu))
                 // The first inference sets up the graph on the DSP: it is the other place where
                 // QNN fails fatally, and doing it now keeps that latency out of the first sentence.
@@ -105,18 +110,20 @@ class VoiceEngine private constructor(
                 }
                 return engine
             } catch (e: Exception) {
-                // A failure QNN reports properly (wrong SoC, no DSP access, runtime mismatch):
-                // the CPU model still gives the user a working keyboard. An explicit self test
-                // reports the NPU's own error instead.
-                val cpu = SpeechModel.SenseVoiceCpu
-                if (forceQnn || !ModelPaths.isInstalled(ctx, cpu)) throw e
-                Log.w(TAG, "NPU model failed to load, using the CPU model", e)
-                return load(ctx, key, cpu, ctx.getString(R.string.backend_cpu_fallback))
+                e
             } finally {
                 // only reached if the process survived; an exception (missing files, wrong SoC)
-                // is reported normally and doesn't disable the NPU
+                // is reported normally and doesn't disable the NPU. Disarmed before falling back,
+                // so that trouble with the CPU model is never blamed on the NPU.
                 guard.disarm()
             }
+            // A failure QNN reports properly (wrong SoC, no DSP access, runtime mismatch):
+            // the CPU model still gives the user a working keyboard. An explicit self test
+            // reports the NPU's own error instead.
+            val cpu = SpeechModel.SenseVoiceCpu
+            if (forceQnn || !ModelPaths.isInstalled(ctx, cpu)) throw failure
+            Log.w(TAG, "NPU model failed to load, using the CPU model", failure)
+            return load(ctx, key, cpu, ctx.getString(R.string.backend_cpu_fallback))
         }
 
         private fun load(ctx: Context, key: Key, model: SpeechModel, backendName: String): VoiceEngine {
@@ -250,11 +257,15 @@ class VoiceEngine private constructor(
  * there is no exception to catch: a marker file is written before loading and deleted after it,
  * and if it is still there next time, the previous attempt never returned.
  *
- * The marker holds the APK's update time, so an app update (possibly with other QNN libraries)
- * tries the NPU again. One tiny write per model load, which is rare: the loaded model is kept in
- * the cached process.
+ * The marker holds the APK's update time (an app update, possibly with other QNN libraries, tries
+ * the NPU again), the boot count, and the pid and time of the load. A load cut short by something
+ * that isn't the NPU's fault - the phone rebooting, the system reclaiming memory, the user force
+ * stopping the app - must not disable the NPU until the next self test: the boot count and the
+ * system's record of how that process ended (Android 11+) tell those cases apart. When there is no
+ * such record the load counts as a crash, as before. One tiny write per model load, which is rare:
+ * the loaded model is kept in the cached process.
  */
-internal class QnnCrashGuard(ctx: Context) {
+internal class QnnCrashGuard(private val ctx: Context) {
     private val file = File(ctx.noBackupFilesDir, "voice-qnn-loading")
 
     private val stamp: String = try {
@@ -263,24 +274,70 @@ internal class QnnCrashGuard(ctx: Context) {
         "0"
     }
 
-    fun crashedBefore(): Boolean {
-        if (!file.exists()) return false
-        val content = try {
+    private class Marker(val stamp: String, val bootCount: Int, val pid: Int, val time: Long)
+
+    private fun readMarker(): Marker? {
+        if (!file.exists()) return null
+        val parts = try {
             file.readText()
         } catch (_: IOException) {
             ""
+        }.trim().split(' ')
+        return Marker(
+            stamp = parts[0],
+            bootCount = parts.getOrNull(1)?.toIntOrNull() ?: -1,
+            pid = parts.getOrNull(2)?.toIntOrNull() ?: 0,
+            time = parts.getOrNull(3)?.toLongOrNull() ?: 0L,
+        )
+    }
+
+    /** why the interrupted load in [m] is not the NPU's fault; null if it may well be */
+    private fun innocentReason(m: Marker): String? {
+        if (m.stamp != stamp) return "left behind by another version of the app"
+        val boot = bootCount(ctx)
+        if (m.bootCount >= 0 && boot >= 0 && m.bootCount != boot) return "interrupted by a reboot"
+        val reason = exitReason(m) ?: return null
+        return if (reason in BENIGN_EXIT_REASONS) "the process was ended by the system (reason $reason)" else null
+    }
+
+    /** how the process that wrote [m] ended, as recorded by the system; null if unknown */
+    private fun exitReason(m: Marker): Int? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || m.pid <= 0) return null
+        return try {
+            val am = ctx.getSystemService(ActivityManager::class.java) ?: return null
+            am.getHistoricalProcessExitReasons(ctx.packageName, m.pid, 4).firstOrNull {
+                it.processName == voiceProcessName(ctx) && it.timestamp >= m.time - CLOCK_SLACK_MS
+            }?.reason
+        } catch (_: Exception) {
+            null
         }
-        if (content == stamp) return true
-        // left behind by another version of the app
+    }
+
+    /** the process that wrote [m] is alive: a load is in progress right now, not a crash */
+    private fun isLoadingNow(m: Marker): Boolean {
+        if (m.pid <= 0) return false
+        val am = ctx.getSystemService(ActivityManager::class.java) ?: return false
+        return try {
+            am.runningAppProcesses?.any { it.pid == m.pid && it.processName == voiceProcessName(ctx) } == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** Called by the recognizer process before loading the NPU model. */
+    fun crashedBefore(): Boolean {
+        val m = readMarker() ?: return false
+        val why = innocentReason(m) ?: return true
+        Log.i(TAG, "Ignoring an interrupted NPU load: $why")
         file.delete()
         return false
     }
 
     fun arm() {
         try {
-            file.writeText(stamp)
+            file.writeText("$stamp ${bootCount(ctx)} ${Process.myPid()} ${System.currentTimeMillis()}")
         } catch (e: IOException) {
-            Log.w("QnnCrashGuard", "Cannot write marker", e)
+            Log.w(TAG, "Cannot write marker", e)
         }
     }
 
@@ -291,7 +348,38 @@ internal class QnnCrashGuard(ctx: Context) {
     fun clear() = disarm()
 
     companion object {
-        /** for the settings screen: the NPU is currently skipped because it crashed */
-        fun isTripped(ctx: Context) = QnnCrashGuard(ctx).let { it.file.exists() && it.crashedBefore() }
+        private const val TAG = "QnnCrashGuard"
+
+        /** wall clock adjustments between writing the marker and the process dying */
+        private const val CLOCK_SLACK_MS = 60_000L
+
+        /** ways a process ends that have nothing to do with what it was doing */
+        private val BENIGN_EXIT_REASONS = setOf(
+            ApplicationExitInfo.REASON_LOW_MEMORY,
+            ApplicationExitInfo.REASON_PERMISSION_CHANGE,
+            ApplicationExitInfo.REASON_USER_REQUESTED,
+            ApplicationExitInfo.REASON_USER_STOPPED,
+            ApplicationExitInfo.REASON_FREEZER,
+            ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE,
+            ApplicationExitInfo.REASON_PACKAGE_UPDATED,
+        )
+
+        private fun voiceProcessName(ctx: Context) = ctx.packageName + ":voice"
+
+        private fun bootCount(ctx: Context): Int = try {
+            Settings.Global.getInt(ctx.contentResolver, Settings.Global.BOOT_COUNT, -1)
+        } catch (_: Exception) {
+            -1
+        }
+
+        /**
+         * For the settings screen: the NPU is currently skipped because loading it crashed.
+         * Read only, it never touches the marker (the recognizer process may be loading).
+         */
+        fun isTripped(ctx: Context): Boolean {
+            val guard = QnnCrashGuard(ctx)
+            val m = guard.readMarker() ?: return false
+            return !guard.isLoadingNow(m) && guard.innocentReason(m) == null
+        }
     }
 }

@@ -47,9 +47,33 @@ class AudioCapture(private val listener: Listener) {
         @Volatile
         var running = true
 
-        /** set by [stop], invoked on the capture thread after the last [Listener.onAudio] */
-        @Volatile
-        var onStopped: (() -> Unit)? = null
+        /** set by [requestStop], invoked on the capture thread after the last [Listener.onAudio] */
+        private var onStopped: (() -> Unit)? = null
+        private var finished = false
+
+        /**
+         * Hand-over between [stop] and the capture thread ending, under one lock: either the
+         * thread is still going and will invoke [callback], or it has already finished and the
+         * caller is told so. Without it a thread ending on its own (a failed read) could miss a
+         * callback set at the same moment, and whoever waits for it would wait forever.
+         *
+         * @return false if the capture thread has already finished; [callback] is not invoked then
+         */
+        @Synchronized
+        fun requestStop(callback: (() -> Unit)?): Boolean {
+            running = false
+            if (finished) return false
+            onStopped = callback
+            return true
+        }
+
+        /** capture thread, once at the very end; @return the callback to invoke, if any */
+        @Synchronized
+        fun finish(): (() -> Unit)? {
+            finished = true
+            running = false
+            return onStopped
+        }
     }
 
     @Volatile
@@ -174,21 +198,20 @@ class AudioCapture(private val listener: Listener) {
             if (current === worker) current = null
         }
         // non-null only if stop() was called; runs even if the last read failed
-        worker.onStopped?.invoke()
+        worker.finish()?.invoke()
     }
 
     /**
      * Asynchronous: the capture thread finishes its current read (<= 100ms), delivers it,
      * releases the microphone and then calls [onStopped] on the capture thread.
      *
-     * @return false if nothing was being captured, [onStopped] will not be called then
+     * @return false if nothing was being captured (or the capture thread had just ended by
+     * itself), [onStopped] will not be called then
      */
     fun stop(onStopped: (() -> Unit)? = null): Boolean {
         val w = current ?: return false
         current = null
-        w.onStopped = onStopped
-        w.running = false
-        return true
+        return w.requestStop(onStopped)
     }
 
     companion object {

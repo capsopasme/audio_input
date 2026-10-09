@@ -41,6 +41,8 @@ enum class SpeechModel(
     val keepLoadedWhenIdle: Boolean = true,
     /** seconds to wait for the model to load before assuming the recognizer hangs */
     val loadTimeoutSeconds: Int = 40,
+    /** seconds to wait for the last sentence after the microphone stops (a full segment's decode) */
+    val finishTimeoutSeconds: Int = 25,
 ) {
 
     /**
@@ -98,6 +100,7 @@ enum class SpeechModel(
         hasLanguageOptions = false,
         keepLoadedWhenIdle = false,
         loadTimeoutSeconds = 90,
+        finishTimeoutSeconds = 90,
     );
 
     val defaultUrl: String

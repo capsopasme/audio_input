@@ -86,6 +86,12 @@ class VoiceImeService : InputMethodService() {
         super.onWindowHidden()
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // dark mode switched while the panel is on screen: keep the gesture handle readable
+        if (isInputViewShown) setupNavigationBar()
+    }
+
     override fun onDestroy() {
         controller.destroy()
         super.onDestroy()

@@ -379,11 +379,23 @@ class VoicePanel(
         var delay = REPEAT_START_MS
         val repeat = object : Runnable {
             override fun run() {
+                // Only while the finger is really still down on a live panel: a panel replaced
+                // (rotation, dark mode) or hidden while held may never see its ACTION_UP, and must
+                // not go on deleting the user's text by itself.
+                if (!view.isPressed || !view.isAttachedToWindow || !view.isShown) return
                 action()
                 delay = (delay * 0.85).toLong().coerceAtLeast(REPEAT_MIN_MS)
                 handler.postDelayed(this, delay)
             }
         }
+        view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {}
+
+            override fun onViewDetachedFromWindow(v: View) {
+                v.isPressed = false
+                handler.removeCallbacks(repeat)
+            }
+        })
         view.setOnTouchListener { v, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
