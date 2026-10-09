@@ -34,6 +34,7 @@ android {
                 keyPassword = System.getenv("SIGN_KEY_PWD")
                 storePassword = System.getenv("SIGN_STORE_PWD")?.takeIf { it.isNotEmpty() }
                     ?: System.getenv("SIGN_KEY_PWD")
+                System.getenv("SIGN_STORE_TYPE")?.takeIf { it.isNotEmpty() }?.let { storeType = it }
             }
         }
     }

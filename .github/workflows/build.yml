@@ -3,11 +3,13 @@ name: Build
 # - every push / pull request: build the APK and keep it as a workflow artifact
 # - a tag v*: also publish a GitHub release with the APK (requires the signing secrets)
 #
-# Signing secrets (Settings -> Secrets and variables -> Actions):
-#   SIGN_KEY_BASE64   base64 of the .jks keystore      (or KEYSTORE_BASE64 / SIGNING_KEY)
-#   SIGN_KEY_ALIAS    key alias                         (or KEY_ALIAS / ALIAS)
-#   SIGN_KEY_PWD      key password                      (or KEY_PASSWORD)
-#   SIGN_STORE_PWD    keystore password, if different   (or KEYSTORE_PASSWORD / KEY_STORE_PASSWORD)
+# Signing secrets (Settings -> Secrets and variables -> Actions -> Repository secrets):
+#   SIGN_KEY_BASE64   base64 of the keystore (.jks / .p12)
+#   SIGN_KEY_ALIAS    key alias (optional if the keystore holds one key)
+#   SIGN_KEY_PWD      key password
+#   SIGN_STORE_PWD    keystore password, if different from the key password
+# Other names work too: find-signing-key.sh recognizes the keystore by its content and tries
+# every secret named like a password / alias against it.
 
 on:
   push:
@@ -93,35 +95,7 @@ jobs:
       - name: Signing key
         env:
           SECRETS_JSON: ${{ toJSON(secrets) }}
-          KEY_B64: ${{ secrets.SIGN_KEY_BASE64 || secrets.KEYSTORE_BASE64 || secrets.SIGNING_KEY }}
-          KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS || secrets.ALIAS }}
-          KEY_PWD: ${{ secrets.SIGN_KEY_PWD || secrets.KEY_PASSWORD }}
-          STORE_PWD: ${{ secrets.SIGN_STORE_PWD || secrets.KEYSTORE_PASSWORD || secrets.KEY_STORE_PASSWORD }}
-        run: |
-          # names only, never values
-          echo "Available secrets: $(echo "$SECRETS_JSON" | jq -r 'keys | join(", ")')"
-          if [ -n "$KEY_B64" ]; then
-            echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/sign.jks"
-            [ -n "$KEY_PWD" ] || KEY_PWD="$STORE_PWD"
-            {
-              echo "SIGN_KEY_FILE=$RUNNER_TEMP/sign.jks"
-              echo "SIGN_KEY_ALIAS=$KEY_ALIAS"
-              echo "SIGN_KEY_PWD=$KEY_PWD"
-              echo "SIGN_STORE_PWD=$STORE_PWD"
-            } >> "$GITHUB_ENV"
-            if [ -z "$KEY_ALIAS" ]; then
-              # a keystore with a single key: take its alias
-              alias=$(keytool -list -keystore "$RUNNER_TEMP/sign.jks" -storepass "${STORE_PWD:-$KEY_PWD}" 2>/dev/null \
-                | awk -F, '/PrivateKeyEntry/ {print $1; exit}')
-              echo "SIGN_KEY_ALIAS=$alias" >> "$GITHUB_ENV"
-            fi
-            echo "Signing with the release key"
-          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "::error::No signing key secret found; refusing to publish a release signed with a throw-away key"
-            exit 1
-          else
-            echo "::warning::No signing key secret found, the APK is signed with a debug key"
-          fi
+        run: .github/scripts/find-signing-key.sh
 
       - name: Build APK
         run: .github/scripts/run-logged.sh ./gradlew --no-daemon :app:assembleRelease -PappVersionName=${{ steps.version.outputs.name }} -PappVersionCode=${{ steps.version.outputs.code }}
