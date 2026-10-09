@@ -66,8 +66,9 @@ export ANDROID_NDK=/path/to/ndk   # r28
 ./gradlew :app:assembleRelease
 ```
 
-推送 `v*` 标签时 CI 会用仓库 secrets 里的签名（`SIGN_KEY_BASE64` / `SIGN_KEY_ALIAS` / `SIGN_KEY_PWD`）
-构建并发布 Release。
+发版：在 Actions → Build → Run workflow 里填 `release_tag`（如 `v1.0.1`），或推送 `v*` 标签。
+CI 会用仓库 secrets 里的签名密钥构建（按内容自动识别 keystore 和密码，secret 叫什么名字都行），
+并创建 Release；没有可用的正式签名时拒绝发版。
 
 ## 许可
 

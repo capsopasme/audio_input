@@ -1,7 +1,8 @@
 name: Build
 
 # - every push / pull request: build the APK and keep it as a workflow artifact
-# - a tag v*: also publish a GitHub release with the APK (requires the signing secrets)
+# - a tag v*, or "Run workflow" with a release tag (e.g. v1.0.1): also publish a GitHub release
+#   with the APK; the dispatched form creates the tag itself. Requires the signing secrets.
 #
 # Signing secrets (Settings -> Secrets and variables -> Actions -> Repository secrets):
 #   SIGN_KEY_BASE64   base64 of the keystore (.jks / .p12)
@@ -17,15 +18,23 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Publish a release with this tag, e.g. v1.0.1 (created on the selected branch's HEAD). Empty: just build."
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: build-${{ github.ref }}-${{ inputs.release_tag }}
+  # never cancel a release build
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release_tag }}
 
 env:
+  # the tag to release: a pushed v* tag, or the dispatch input
+  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || inputs.release_tag }}
   NDK_VERSION: "28.0.13004108"
   CMAKE_VERSION: "3.31.6"
 
@@ -54,8 +63,17 @@ jobs:
       - name: Version
         id: version
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            name="${GITHUB_REF_NAME#v}"
+          if [ -n "$RELEASE_TAG" ]; then
+            if ! [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error title=Version::Release tag must look like v1.2.3, got '$RELEASE_TAG'"
+              exit 1
+            fi
+            existing=$(git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{commit}" || true)
+            if [ -n "$existing" ] && [ "$existing" != "$(git rev-parse HEAD)" ]; then
+              echo "::error title=Version::Tag $RELEASE_TAG already exists on another commit"
+              exit 1
+            fi
+            name="${RELEASE_TAG#v}"
           else
             last=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo v0.0.0)
             name="${last#v}-dev.${GITHUB_RUN_NUMBER}+$(git rev-parse --short HEAD)"
@@ -119,7 +137,12 @@ jobs:
           "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -q 'extractNativeLibs.*=true' \
             || { echo "::error::extractNativeLibs is not true"; exit 1; }
           echo "--- signature"
-          "$BT/apksigner" verify --print-certs "$apk" | grep -E 'Signer|SHA-256' || true
+          certs=$("$BT/apksigner" verify --print-certs "$apk")
+          grep -E 'Signer|SHA-256' <<<"$certs" || true
+          if [ -n "$RELEASE_TAG" ] && grep -q 'CN=Android Debug' <<<"$certs"; then
+            echo "::error title=Signing::A release must not be signed with the debug key"
+            exit 1
+          fi
           mkdir -p dist
           out="dist/AudioInput-${{ steps.version.outputs.name }}-arm64-v8a.apk"
           out="${out//+/_}"
@@ -135,18 +158,20 @@ jobs:
           if-no-files-found: error
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE_TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes=".github/release-notes/${GITHUB_REF_NAME}.md"
+          notes=".github/release-notes/${RELEASE_TAG}.md"
           if [ -f "$notes" ]; then
             args=(--notes-file "$notes")
           else
             args=(--generate-notes)
           fi
-          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/*.apk --clobber
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/*.apk --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.apk --title "$GITHUB_REF_NAME" --verify-tag "${args[@]}"
+            # creates the tag on this commit if it doesn't exist yet
+            gh release create "$RELEASE_TAG" dist/*.apk --target "$GITHUB_SHA" --title "$RELEASE_TAG" "${args[@]}"
           fi
+          gh release view "$RELEASE_TAG" --json url,assets --jq '"::notice title=Released::\(.url) \([.assets[].name] | join(", "))"'

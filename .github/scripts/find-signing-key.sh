@@ -15,7 +15,7 @@ echo "::notice title=Repository secrets visible to this run::$(echo $names)"
 value() { jq -r --arg n "$1" '.[$n] // empty' <<<"$SECRETS_JSON"; }
 
 fail_or_skip() {
-  if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+  if [ -n "${RELEASE_TAG:-}" ] || [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
     echo "::error title=Signing::$1; refusing to publish a release signed with a throw-away key"
     exit 1
   fi
