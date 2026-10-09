@@ -391,6 +391,12 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         state = State.Idle
         partial = ""
         silentInput = false
+        if (switchAfterFinish) {
+            switchAfterFinish = false
+            main.removeCallbacks(switchTimeout)
+            // after the caller has finished updating the state
+            main.post { doSwitchBack() }
+        }
     }
 
     /**
@@ -584,8 +590,30 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         action?.second?.invoke()
     }
 
+    /** switch input method once the finishing session has delivered its last sentence */
+    private var switchAfterFinish = false
+
+    private val switchTimeout = Runnable {
+        if (switchAfterFinish) {
+            switchAfterFinish = false
+            doSwitchBack()
+        }
+    }
+
     private fun switchBack() {
         if (state == State.Loading || state == State.Listening) stopListening()
+        if (state == State.Finishing) {
+            // Switching away destroys this input method right away, which would throw away the
+            // sentence still being decoded. Let it land in the editor first.
+            switchAfterFinish = true
+            main.removeCallbacks(switchTimeout)
+            main.postDelayed(switchTimeout, SWITCH_WAIT_MS)
+            return
+        }
+        doSwitchBack()
+    }
+
+    private fun doSwitchBack() {
         val switched = try {
             service.switchToPreviousInputMethod() || service.switchToNextInputMethod(false)
         } catch (e: Exception) {
@@ -641,6 +669,7 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         private const val TAG = "VoiceController"
         private const val IDLE_UNBIND_DELAY_MS = 10_000L
         private const val MAX_UNDO = 20
+        private const val SWITCH_WAIT_MS = 4_000L
 
         fun isPassword(info: EditorInfo): Boolean {
             val cls = info.inputType and EditorInfo.TYPE_MASK_CLASS
