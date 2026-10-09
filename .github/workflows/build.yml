@@ -68,7 +68,7 @@ jobs:
 
       # fail fast on Kotlin / resource errors before spending time on the native build
       - name: Compile
-        run: ./gradlew --no-daemon :app:compileReleaseSources -PappVersionName=${{ steps.version.outputs.name }} -PappVersionCode=${{ steps.version.outputs.code }}
+        run: .github/scripts/run-logged.sh ./gradlew --no-daemon :app:compileReleaseSources -PappVersionName=${{ steps.version.outputs.name }} -PappVersionCode=${{ steps.version.outputs.code }}
 
       - name: Install NDK and CMake
         run: |
@@ -88,7 +88,7 @@ jobs:
         env:
           # some of sherpa-onnx's dependencies declare an old cmake_minimum_required
           CMAKE_POLICY_VERSION_MINIMUM: "3.5"
-        run: ./scripts/prepare-native.sh
+        run: .github/scripts/run-logged.sh ./scripts/prepare-native.sh
 
       - name: Signing key
         env:
@@ -124,7 +124,7 @@ jobs:
           fi
 
       - name: Build APK
-        run: ./gradlew --no-daemon :app:assembleRelease -PappVersionName=${{ steps.version.outputs.name }} -PappVersionCode=${{ steps.version.outputs.code }}
+        run: .github/scripts/run-logged.sh ./gradlew --no-daemon :app:assembleRelease -PappVersionName=${{ steps.version.outputs.name }} -PappVersionCode=${{ steps.version.outputs.code }}
 
       - name: Check APK
         id: apk

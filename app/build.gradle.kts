@@ -23,10 +23,7 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
-        // the speech recognizer's native libraries are only built for arm64
-        ndk {
-            abiFilters += "arm64-v8a"
-        }
+        // the speech recognizer's native libraries (jniLibs) exist for arm64-v8a only
     }
 
     signingConfigs {

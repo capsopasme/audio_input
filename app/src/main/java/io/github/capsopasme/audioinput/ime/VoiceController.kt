@@ -90,7 +90,7 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
     @Volatile
     private var shownLevel = -1
 
-    private val clientListener = object : VoiceClient.Listener {
+    private val clientListener: VoiceClient.Listener = object : VoiceClient.Listener {
         override fun onLoading() {
             if (state == State.Idle) return
             state = State.Loading
@@ -174,9 +174,9 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         }
     }
 
-    private val client = VoiceClient(ctx, clientListener)
+    private val client: VoiceClient = VoiceClient(ctx, clientListener)
 
-    private val capture = AudioCapture(object : AudioCapture.Listener {
+    private val capture: AudioCapture = AudioCapture(object : AudioCapture.Listener {
         override fun onAudio(pcm: ShortArray, rms: Float, token: Int) {
             // one main thread hop per chunk (10/s) for both: audio has to be queued in order with
             // MSG_START / MSG_STOP anyway, see VoiceClient.sendAudio
@@ -212,7 +212,7 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
         }
     })
 
-    private val focus = AudioFocusHolder(ctx)
+    private val focus: AudioFocusHolder = AudioFocusHolder(ctx)
 
     // --- lifecycle, called by VoiceImeService ----------------------------------------------------
 
