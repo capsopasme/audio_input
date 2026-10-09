@@ -88,9 +88,11 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
 
     private val clientListener: VoiceClient.Listener = object : VoiceClient.Listener {
         override fun onLoading() {
-            if (state == State.Idle) return
-            state = State.Loading
-            status = ctx.getString(R.string.status_loading, ctx.getString(prefs.model.titleRes))
+            // Only while still waiting to listen. Stopped before the recognizer even got to the
+            // session (Finishing), the load is just part of finishing: going back to Loading here
+            // would let the following onReady show "listening" with the microphone already off.
+            if (state != State.Loading) return
+            status = ctx.getString(R.string.status_loading, ctx.getString(sessionModel.titleRes))
             render()
         }
 
@@ -256,7 +258,8 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
             }
             State.Finishing -> {
                 startWhenIdle = autoStart
-                status = ctx.getString(R.string.status_finishing)
+                // replace e.g. the password field's notice, but keep the "not inserted" one
+                if (!droppedResult) status = ctx.getString(R.string.status_finishing)
             }
             State.Idle -> {
                 if (checkReady()) {
