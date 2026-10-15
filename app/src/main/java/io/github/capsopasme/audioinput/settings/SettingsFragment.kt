@@ -100,7 +100,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val ctx = requireContext()
 
         val models = findPreference<PreferenceCategory>("cat_models")!!
-        SpeechModel.entries.forEachIndexed { i, model ->
+        // an NPU model compiled for another SoC can't load here: don't offer it
+        SpeechModel.forThisDevice.forEachIndexed { i, model ->
             val p = Preference(ctx).apply {
                 key = "model_entry_${model.name}"
                 title = getString(model.titleRes)
@@ -348,7 +349,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 ModelManager.delete(ctx, model)
                 if (prefs.model == model) {
                     // keep the keyboard working with another installed model, if there is one
-                    SpeechModel.entries
+                    SpeechModel.forThisDevice
                         .firstOrNull { it != model && ModelPaths.isInstalled(ctx, it) }
                         ?.let { selectModel(it) }
                 }
@@ -434,12 +435,19 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val ctx = requireContext()
         val libDir = ctx.applicationInfo.nativeLibraryDir
         val sherpa = File(libDir, "libsherpa-onnx-jni.so").exists()
-        val qnn = File(libDir, "libQnnHtpV75Skel.so").exists()
+        // the Hexagon versions this build has the NPU runtime for, e.g. "v73, v75"
+        val htp = SpeechModel.entries.mapNotNull { it.qnn }
+            .filter { File(libDir, it.skelLib).exists() && File(libDir, it.stubLib).exists() }
+            .map { it.htpArch }.distinct().sorted()
+            .joinToString { "v$it" }
+            .ifEmpty { getString(R.string.no) }
+        val npu = SpeechModel.npuForThisDevice?.qnn?.let { "HTP v${it.htpArch}" } ?: getString(R.string.no)
         return getString(
             R.string.device_info_summary,
             SpeechModel.socModel.ifEmpty { "?" },
             getString(if (sherpa) R.string.yes else R.string.no),
-            getString(if (qnn) R.string.yes else R.string.no)
+            htp,
+            npu
         )
     }
 

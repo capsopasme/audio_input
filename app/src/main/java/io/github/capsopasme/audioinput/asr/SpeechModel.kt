@@ -21,8 +21,8 @@ enum class SpeechModel(
     val requiredFiles: List<String>,
     /** Rough download size, for the UI and the free space check */
     val downloadSizeMb: Int,
-    /** Runs on the Qualcomm HTP (NPU) through QNN */
-    val isQnn: Boolean,
+    /** Runs on the Qualcomm HTP (NPU) through QNN, compiled for this SoC; null for CPU models */
+    val qnn: QnnTarget?,
     /**
      * The longest audio segment the model takes.
      * QNN models have a fixed input length (anything longer is silently truncated).
@@ -56,7 +56,25 @@ enum class SpeechModel(
         "sherpa-onnx-qnn-SM8650-binary-20-seconds-sense-voice-zh-en-ja-ko-yue-2024-07-17-int8",
         listOf("model.bin", "tokens.txt"),
         downloadSizeMb = 157,
-        isQnn = true,
+        qnn = QnnTarget("SM8650", 75),
+        maxSegmentSeconds = 19f,
+        fastEnoughForPartial = true,
+        testWav = "test_wavs/zh.wav",
+        hasLanguageOptions = true,
+    ),
+
+    /**
+     * The same model on the Snapdragon 8 Gen 2 (SM8550, Hexagon v73) NPU.
+     * Precompiled QNN context binary (QNN SDK 2.40, soc_type=SM8550), fixed 20 s input.
+     */
+    SenseVoiceQnnSM8550(
+        R.string.model_sense_voice_qnn_sm8550,
+        R.string.model_sense_voice_qnn_sm8550_desc,
+        "asr-models-qnn-binary/sherpa-onnx-qnn-SM8550-binary-20-seconds-sense-voice-zh-en-ja-ko-yue-2024-07-17-int8.tar.bz2",
+        "sherpa-onnx-qnn-SM8550-binary-20-seconds-sense-voice-zh-en-ja-ko-yue-2024-07-17-int8",
+        listOf("model.bin", "tokens.txt"),
+        downloadSizeMb = 157,
+        qnn = QnnTarget("SM8550", 73),
         maxSegmentSeconds = 19f,
         fastEnoughForPartial = true,
         testWav = "test_wavs/zh.wav",
@@ -71,7 +89,7 @@ enum class SpeechModel(
         "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17",
         listOf("model.int8.onnx", "tokens.txt"),
         downloadSizeMb = 156,
-        isQnn = false,
+        qnn = null,
         maxSegmentSeconds = 25f,
         fastEnoughForPartial = true,
         testWav = "test_wavs/zh.wav",
@@ -93,7 +111,7 @@ enum class SpeechModel(
             "tokenizer/tokenizer_config.json"
         ),
         downloadSizeMb = 838,
-        isQnn = false,
+        qnn = null,
         maxSegmentSeconds = 25f,
         fastEnoughForPartial = false,
         testWav = "test_wavs/codeswitch.wav",
@@ -102,6 +120,17 @@ enum class SpeechModel(
         loadTimeoutSeconds = 90,
         finishTimeoutSeconds = 90,
     );
+
+    val isQnn: Boolean
+        get() = qnn != null
+
+    /**
+     * Whether this phone can run the model: CPU models run anywhere, an NPU model only on the SoC
+     * it was compiled for (a context binary for another Hexagon version fails to load).
+     * Unknown SoC (Android 11 and older): offered, loading reports the problem.
+     */
+    val runsOnThisDevice: Boolean
+        get() = qnn == null || socModel.isEmpty() || qnn.matches(socModel)
 
     val defaultUrl: String
         get() = "https://github.com/k2-fsa/sherpa-onnx/releases/download/$releasePath"
@@ -126,13 +155,31 @@ enum class SpeechModel(
                 Build.SOC_MODEL.takeUnless { it == Build.UNKNOWN } ?: ""
             } else ""
 
-        /** Snapdragon 8 Gen 3, the only SoC the bundled NPU model was compiled for */
-        val isSm8650: Boolean
-            get() = socModel.uppercase().startsWith("SM8650")
+        /** the NPU model compiled for this phone's SoC, if there is one */
+        val npuForThisDevice: SpeechModel?
+            get() = socModel.takeIf { it.isNotEmpty() }?.let { soc ->
+                entries.firstOrNull { it.qnn?.matches(soc) == true }
+            }
+
+        /** the models offered on this phone, in display order */
+        val forThisDevice: List<SpeechModel>
+            get() = entries.filter { it.runsOnThisDevice }
 
         val recommended: SpeechModel
-            get() = if (isSm8650) SenseVoiceQnnSM8650 else SenseVoiceCpu
+            get() = npuForThisDevice ?: SenseVoiceCpu
     }
+}
+
+/**
+ * The SoC a QNN context binary was compiled for.
+ * @param socPrefix [Build.SOC_MODEL] prefix, e.g. "SM8550" (variants report "SM8550-AB" etc.)
+ * @param htpArch Hexagon version of its NPU: the libQnnHtpV<arch>Stub/Skel libraries it needs
+ */
+data class QnnTarget(val socPrefix: String, val htpArch: Int) {
+    fun matches(soc: String) = soc.uppercase().startsWith(socPrefix)
+
+    val stubLib get() = "libQnnHtpV${htpArch}Stub.so"
+    val skelLib get() = "libQnnHtpV${htpArch}Skel.so"
 }
 
 enum class SpeechLanguage(val titleRes: Int, val senseVoiceCode: String) {

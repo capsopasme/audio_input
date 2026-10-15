@@ -1,7 +1,7 @@
 # 离线语音输入（Audio Input）
 
 一个**只有语音**的安卓输入法：平时用 Gboard 等键盘打字，要说话时切到它，说完一键切回。
-识别全程离线，在骁龙 8 Gen 3（SM8650）上跑在 NPU 里，又快又省电。
+识别全程离线，在骁龙 8 Gen 2（SM8550）和 8 Gen 3（SM8650）上跑在 NPU 里，又快又省电；其他手机用 CPU 模型。
 
 识别部分源自 [capsopasme/fcitx5-android](https://github.com/capsopasme/fcitx5-android) 的 `voice-input` 分支，
 去掉了 fcitx5 本体，单独做成一个轻量的语音输入法。
@@ -27,10 +27,12 @@
 
 | 模型 | 运行位置 | 说明 |
 |---|---|---|
-| SenseVoice · 高通 NPU | SM8650 NPU（HTP v75） | 默认推荐。QNN 2.40 预编译模型（20 秒输入窗口），中英粤日韩，自带标点 |
+| SenseVoice · 高通 NPU（8 Gen 3） | SM8650 NPU（HTP v75） | 8 Gen 3 上默认推荐。QNN 2.40 预编译模型（20 秒输入窗口），中英粤日韩，自带标点 |
+| SenseVoice · 高通 NPU（8 Gen 2） | SM8550 NPU（HTP v73） | 8 Gen 2 上默认推荐。同上，为 SM8550 编译 |
 | SenseVoice · CPU | 任意 arm64 | 后备；NPU 出问题时自动改用它（需已下载） |
 | Qwen3-ASR 0.6B · CPU | 任意 arm64 | 最准，约 880 MB，每句 1–2 秒，不做实时预览 |
 
+NPU 模型是按芯片编译的，设置里只列出本机芯片对应的那一个（按 `Build.SOC_MODEL` 判断），导入别的芯片的 NPU 模型包会被拒绝。
 模型在设置里下载（支持 GitHub 加速前缀，移动网络下会先确认），也可以导入在电脑上下好的 sherpa-onnx `.tar.bz2`。
 当前选中的模型还没装时，下载或导入的模型会自动成为使用中的模型；删除使用中的模型时自动改用另一个已安装的。
 存放在应用私有目录，卸载即清除。
@@ -66,7 +68,7 @@
 
 ```sh
 export ANDROID_NDK=/path/to/ndk   # r28
-./scripts/prepare-native.sh       # 编译 sherpa-onnx v1.13.8（QNN=ON），下载 QNN 2.40 运行库
+./scripts/prepare-native.sh       # 编译 sherpa-onnx v1.13.8（QNN=ON），下载 QNN 2.40 运行库（HTP v73 + v75）
 ./gradlew :app:assembleRelease
 ```
 

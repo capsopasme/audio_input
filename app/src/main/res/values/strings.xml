@@ -7,6 +7,8 @@
     <!-- models -->
     <string name="model_sense_voice_qnn">SenseVoice · Qualcomm NPU (Snapdragon 8 Gen 3)</string>
     <string name="model_sense_voice_qnn_desc">Recommended on SM8650. Runs on the NPU: fast and the most power efficient. Chinese / English / Cantonese / Japanese / Korean, punctuation included.</string>
+    <string name="model_sense_voice_qnn_sm8550">SenseVoice · Qualcomm NPU (Snapdragon 8 Gen 2)</string>
+    <string name="model_sense_voice_qnn_sm8550_desc">Recommended on SM8550. Runs on the NPU: fast and the most power efficient. Chinese / English / Cantonese / Japanese / Korean, punctuation included.</string>
     <string name="model_sense_voice_cpu">SenseVoice · CPU</string>
     <string name="model_sense_voice_cpu_desc">Same model on the CPU, works on any phone. Also the automatic fallback when the NPU fails.</string>
     <string name="model_qwen3_asr">Qwen3-ASR 0.6B · CPU</string>
@@ -25,7 +27,7 @@
 
     <string name="error_model_missing">Model files missing: %1$s</string>
     <string name="error_init_failed">Could not load the model. %1$s</string>
-    <string name="error_qnn_soc">The NPU model is built for the Snapdragon 8 Gen 3 (SM8650); this phone has %1$s. Please use a CPU model.</string>
+    <string name="error_qnn_soc">This NPU model is built for %1$s; this phone has %2$s. Please use the NPU model for this phone or a CPU model.</string>
     <string name="error_qnn_libs">This build does not include the QNN runtime: %1$s</string>
     <string name="error_qnn_crashed">Loading the NPU model crashed the recognizer last time, so the NPU is paused. Download “SenseVoice · CPU” as a fallback, or run the self test on the NPU model in settings to retry.</string>
     <string name="error_interrupted">Interrupted by another voice session (e.g. the self test in settings)</string>
@@ -114,11 +116,12 @@
     <string name="import_no_picker">No file picker available</string>
     <string name="import_done">Imported %1$s</string>
     <string name="import_failed">Import failed: %1$s</string>
+    <string name="error_import_wrong_soc">this NPU model is built for %1$s and can\'t run on this phone (%2$s)</string>
     <string name="download_prefix">Download mirror prefix</string>
     <string name="download_prefix_hint">Optional. Put in front of the GitHub download URL, e.g. https://ghfast.top/ . Use {url} where the mirror wants the address in the middle.</string>
     <string name="download_prefix_none">None (download from GitHub directly)</string>
     <string name="device_info">Device</string>
-    <string name="device_info_summary">SoC: %1$s · recognizer library: %2$s · QNN HTP v75 runtime: %3$s</string>
+    <string name="device_info_summary">SoC: %1$s · recognizer library: %2$s · QNN HTP runtime: %3$s · NPU model for this SoC: %4$s</string>
     <string name="yes">yes</string>
     <string name="no">no</string>
 

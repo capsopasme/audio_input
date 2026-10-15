@@ -8,6 +8,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.StatFs
 import android.util.Log
+import io.github.capsopasme.audioinput.R
 import io.github.capsopasme.audioinput.asr.ModelPaths
 import io.github.capsopasme.audioinput.asr.SpeechModel
 import io.github.capsopasme.audioinput.model.archive.TarExtractor
@@ -268,6 +269,11 @@ object ModelManager {
                 }
                 val model = tmp.listFiles()?.firstNotNullOfOrNull { SpeechModel.fromDirName(it.name) }
                     ?: throw IOException("Unknown model archive")
+                if (!model.runsOnThisDevice) {
+                    throw IOException(
+                        appCtx.getString(R.string.error_import_wrong_soc, model.qnn?.socPrefix, SpeechModel.socModel)
+                    )
+                }
                 cancel(model)
                 jobs[model]?.join()
                 installFromTmp(appCtx, tmp, model)
