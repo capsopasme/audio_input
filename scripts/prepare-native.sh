@@ -10,7 +10,8 @@
 # Environment:
 #   SHERPA_ONNX_VERSION  sherpa-onnx git tag (default v1.13.8; must match the Kotlin API in
 #                        app/src/main/java/com/k2fsa/sherpa/onnx, which JNI accesses by name)
-#   QNN_HTP_ARCHS        Hexagon versions to bundle (default "75" = Snapdragon 8 Gen 3)
+#   QNN_HTP_ARCHS        Hexagon versions to bundle (default "73 75" = Snapdragon 8 Gen 2 and
+#                        8 Gen 3; one per NPU model in SpeechModel.kt)
 #   WORK_DIR             build directory (default build/voice-native)
 #
 set -euo pipefail
@@ -18,7 +19,7 @@ set -euo pipefail
 SHERPA_ONNX_VERSION=${SHERPA_ONNX_VERSION:-v1.13.8}
 # must match the QNN version the model's context binary was built with
 QNN_VERSION=2.40.0.251030
-QNN_HTP_ARCHS=${QNN_HTP_ARCHS:-75}
+QNN_HTP_ARCHS=${QNN_HTP_ARCHS:-73 75}
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK_DIR=${WORK_DIR:-$ROOT/build/voice-native}

@@ -134,8 +134,8 @@ class VoiceEngine private constructor(
             }
             val language = if (model.hasLanguageOptions) key.language.senseVoiceCode else "auto"
             val modelConfig = when (model) {
-                SpeechModel.SenseVoiceQnnSM8650 -> {
-                    checkQnnUsable(ctx)
+                SpeechModel.SenseVoiceQnnSM8650, SpeechModel.SenseVoiceQnnSM8550 -> {
+                    checkQnnUsable(ctx, model.qnn!!)
                     OfflineModelConfig(
                         provider = "qnn",
                         senseVoice = OfflineSenseVoiceModelConfig(
@@ -184,20 +184,20 @@ class VoiceEngine private constructor(
             return VoiceEngine(key, model, recognizer, elapsed, backendName)
         }
 
-        private fun checkQnnUsable(ctx: Context) {
+        private fun checkQnnUsable(ctx: Context, target: QnnTarget) {
             val soc = SpeechModel.socModel
-            Log.i(TAG, "SoC model: '$soc'")
-            if (soc.isNotBlank() && !SpeechModel.isSm8650) {
-                throw EngineException(ctx.getString(R.string.error_qnn_soc, soc))
+            Log.i(TAG, "SoC model: '$soc', model built for ${target.socPrefix} (HTP v${target.htpArch})")
+            if (soc.isNotBlank() && !target.matches(soc)) {
+                throw EngineException(ctx.getString(R.string.error_qnn_soc, target.socPrefix, soc))
             }
             val libDir = ctx.applicationInfo.nativeLibraryDir
-            val required = listOf("libQnnHtp.so", "libQnnSystem.so", "libQnnHtpV75Stub.so", "libQnnHtpV75Skel.so")
+            val required = listOf("libQnnHtp.so", "libQnnSystem.so", target.stubLib, target.skelLib)
             val missing = required.filterNot { File(libDir, it).exists() }
             if (missing.isNotEmpty()) {
                 throw EngineException(ctx.getString(R.string.error_qnn_libs, missing.joinToString()))
             }
             if (!adspPathSet) {
-                // without ADSP_LIBRARY_PATH the DSP can't find libQnnHtpV75Skel.so (error 1008)
+                // without ADSP_LIBRARY_PATH the DSP can't find libQnnHtpV<arch>Skel.so (error 1008)
                 OfflineRecognizer.prependAdspLibraryPath(libDir)
                 adspPathSet = true
             }

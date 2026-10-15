@@ -127,7 +127,7 @@ jobs:
           apk="${apks[0]}"
           echo "--- native libraries"
           unzip -l "$apk" | grep 'lib/' || true
-          for so in libsherpa-onnx-jni.so libonnxruntime.so libQnnHtp.so libQnnSystem.so libQnnHtpV75Stub.so libQnnHtpV75Skel.so; do
+          for so in libsherpa-onnx-jni.so libonnxruntime.so libQnnHtp.so libQnnSystem.so libQnnHtpV73Stub.so libQnnHtpV73Skel.so libQnnHtpV75Stub.so libQnnHtpV75Skel.so; do
             unzip -l "$apk" | grep -q "lib/arm64-v8a/$so" || { echo "::error::$so missing from the APK"; exit 1; }
           done
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)

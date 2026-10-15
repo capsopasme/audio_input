@@ -20,7 +20,10 @@ import io.github.capsopasme.audioinput.asr.SpeechModel
 class Prefs private constructor(val sp: SharedPreferences) {
 
     var model: SpeechModel
-        get() = SpeechModel.fromName(sp.getString(KEY_MODEL, null)) ?: SpeechModel.recommended
+        // a stored NPU model for another SoC (e.g. settings carried over to a new phone) would
+        // never load here: use what this phone runs best instead
+        get() = SpeechModel.fromName(sp.getString(KEY_MODEL, null))?.takeIf { it.runsOnThisDevice }
+            ?: SpeechModel.recommended
         set(value) = sp.edit().putString(KEY_MODEL, value.name).apply()
 
     val language: SpeechLanguage

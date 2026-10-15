@@ -66,7 +66,7 @@ android {
     packaging {
         jniLibs {
             // Extract native libraries to nativeLibraryDir on install. Required for the NPU:
-            // ADSP_LIBRARY_PATH must point at a real directory holding libQnnHtpV75Skel.so,
+            // ADSP_LIBRARY_PATH must point at a real directory holding libQnnHtpV<arch>Skel.so,
             // which the DSP loads by path (error 1008 otherwise).
             useLegacyPackaging = true
             // QNN libraries are shipped as Qualcomm built them; the Skel library is a Hexagon

@@ -7,6 +7,8 @@
     <!-- models -->
     <string name="model_sense_voice_qnn">SenseVoice · 高通 NPU（骁龙 8 Gen 3）</string>
     <string name="model_sense_voice_qnn_desc">SM8650 推荐。跑在 NPU 上，快且最省电。中/英/粤/日/韩，自带标点。</string>
+    <string name="model_sense_voice_qnn_sm8550">SenseVoice · 高通 NPU（骁龙 8 Gen 2）</string>
+    <string name="model_sense_voice_qnn_sm8550_desc">SM8550 推荐。跑在 NPU 上，快且最省电。中/英/粤/日/韩，自带标点。</string>
     <string name="model_sense_voice_cpu">SenseVoice · CPU</string>
     <string name="model_sense_voice_cpu_desc">同一个模型跑在 CPU 上，任何手机都能用；也是 NPU 出问题时的自动后备。</string>
     <string name="model_qwen3_asr">Qwen3-ASR 0.6B · CPU</string>
@@ -25,7 +27,7 @@
 
     <string name="error_model_missing">模型文件缺失：%1$s</string>
     <string name="error_init_failed">模型加载失败。%1$s</string>
-    <string name="error_qnn_soc">NPU 模型是为骁龙 8 Gen 3（SM8650）编译的，本机是 %1$s，请改用 CPU 模型。</string>
+    <string name="error_qnn_soc">这个 NPU 模型是为 %1$s 编译的，本机是 %2$s，请改用本机对应的 NPU 模型或 CPU 模型。</string>
     <string name="error_qnn_libs">此版本没有打包 QNN 运行库：%1$s</string>
     <string name="error_qnn_crashed">上次加载 NPU 模型时识别进程崩溃了，已暂停使用 NPU。请下载「SenseVoice · CPU」作为后备，或在设置里对 NPU 模型点「自检」重试。</string>
     <string name="error_interrupted">被另一个语音会话打断（例如设置里的自检）</string>
@@ -114,11 +116,12 @@
     <string name="import_no_picker">本机没有可用的文件选择器</string>
     <string name="import_done">已导入 %1$s</string>
     <string name="import_failed">导入失败：%1$s</string>
+    <string name="error_import_wrong_soc">这个 NPU 模型是为 %1$s 编译的，不能在本机（%2$s）上运行</string>
     <string name="download_prefix">下载加速前缀</string>
     <string name="download_prefix_hint">可选。加在 GitHub 下载地址前面，例如 https://ghfast.top/ 。如果镜像需要把地址放在中间，用 {url} 占位。</string>
     <string name="download_prefix_none">无（直接从 GitHub 下载）</string>
     <string name="device_info">设备信息</string>
-    <string name="device_info_summary">SoC：%1$s · 识别库：%2$s · QNN HTP v75 运行库：%3$s</string>
+    <string name="device_info_summary">SoC：%1$s · 识别库：%2$s · QNN HTP 运行库：%3$s · 本机 NPU 模型：%4$s</string>
     <string name="yes">有</string>
     <string name="no">无</string>
 
