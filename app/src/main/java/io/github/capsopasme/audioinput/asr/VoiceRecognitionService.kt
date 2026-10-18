@@ -17,6 +17,7 @@ import android.os.Messenger
 import android.os.RemoteException
 import android.os.SystemClock
 import android.util.Log
+import com.k2fsa.sherpa.onnx.SpeechSegment
 import com.k2fsa.sherpa.onnx.Vad
 import io.github.capsopasme.audioinput.R
 import java.io.File
@@ -106,6 +107,16 @@ class VoiceRecognitionService : Service() {
 
         /** samples in [buffer] already fed to VAD */
         var fed = 0
+
+        /**
+         * VAD stream position of [buffer]'s first sample (everything dropped so far). VAD counts
+         * samples from its reset at session start, so a segment's start maps to
+         * `segment.start - base` in [buffer].
+         */
+        var base = 0
+
+        /** VAD stream position up to which audio has been handed to the recognizer */
+        var emittedUpTo = 0
         var speechStarted = false
         var speechStart = 0
         var lastPartialAt = 0L
@@ -278,6 +289,7 @@ class VoiceRecognitionService : Service() {
             val drop = s.fed - KEEP_WHEN_SILENT
             s.buffer.dropFront(drop)
             s.fed -= drop
+            s.base += drop
         }
     }
 
@@ -285,11 +297,12 @@ class VoiceRecognitionService : Service() {
         while (!vad.empty()) {
             val segment = vad.front()
             vad.pop()
+            val samples = withMargins(s, segment, engine.model)
             val t0 = SystemClock.elapsedRealtime()
-            val text = engine.recognize(segment.samples)
+            val text = engine.recognize(samples)
             val cost = SystemClock.elapsedRealtime() - t0
             // never log the recognized text itself: logcat is readable by other tools
-            Log.d(TAG, "segment ${segment.samples.size} samples -> ${text.length} chars in ${cost}ms")
+            Log.d(TAG, "segment ${samples.size} samples -> ${text.length} chars in ${cost}ms")
             if (text.isNotEmpty()) {
                 s.samplesWithoutText = 0
                 reply(s.replyTo, P.EVT_FINAL, s.id) {
@@ -297,15 +310,45 @@ class VoiceRecognitionService : Service() {
                     putLong(P.KEY_DECODE_MS, cost)
                 }
             }
-            // speech ended: everything fed so far belongs to that segment
+            // speech ended: everything fed so far belongs to that segment, except a short tail
+            // kept as lead-in for the next sentence (see withMargins)
             s.speechStarted = false
             s.lastPartialText = ""
             s.lastPartialCost = 0L
-            s.buffer.dropFront(s.fed)
-            s.fed = 0
+            val drop = (s.fed - KEEP_WHEN_SILENT).coerceAtLeast(0)
+            s.buffer.dropFront(drop)
+            s.fed -= drop
+            s.base += drop
             s.speechStart = 0
             s.lastPartialFed = 0
         }
+    }
+
+    /**
+     * The segment plus a little audio around it, taken from the session's own buffer.
+     *
+     * Silero VAD only fires after [VoiceEngine.createVad]'s minSpeechDuration of speech and starts
+     * the segment just ~30 ms before the first window it scored as speech. Soft onsets (打, 给,
+     * 播, s / sh / h …) score low and fall before that point, so the first syllable was often
+     * clipped or misheard, and the same happened to soft endings. Audio already handed to the
+     * recognizer (a force-cut long sentence) is never repeated.
+     */
+    private fun withMargins(s: Session, segment: SpeechSegment, model: SpeechModel): FloatArray {
+        val start = segment.start - s.base
+        val end = start + segment.samples.size
+        if (start < 0 || end > s.buffer.size) return segment.samples
+        val earliest = (s.emittedUpTo - s.base).coerceAtLeast(0)
+        val limit = (model.maxSegmentSeconds * P.SAMPLE_RATE).toInt() + MARGIN_LIMIT
+        var pre = minOf(LEAD_IN, start - earliest).coerceAtLeast(0)
+        var post = minOf(TRAIL, s.buffer.size - end)
+        val over = segment.samples.size + pre + post - limit
+        if (over > 0) {
+            val cutPost = minOf(post, over)
+            post -= cutPost
+            pre = (pre - (over - cutPost)).coerceAtLeast(0)
+        }
+        s.emittedUpTo = s.base + end + post
+        return if (pre == 0 && post == 0) segment.samples else s.buffer.copyOfRange(start - pre, end + post)
     }
 
     private fun stop(id: Int, cancel: Boolean, autoStopped: Boolean = false) {
@@ -392,7 +435,18 @@ class VoiceRecognitionService : Service() {
     companion object {
         private const val TAG = "VoiceRecognition"
         private const val PRE_ROLL = P.SAMPLE_RATE * 3 / 10
-        private const val KEEP_WHEN_SILENT = P.SAMPLE_RATE / 2
+        /**
+         * Audio kept while nobody speaks. Must cover VAD's own look-back at onset (2 windows +
+         * minSpeechDuration, ~0.31 s) plus [LEAD_IN].
+         */
+        private const val KEEP_WHEN_SILENT = P.SAMPLE_RATE * 8 / 10
+
+        /** extra audio before / after each VAD segment, see [withMargins] */
+        private const val LEAD_IN = P.SAMPLE_RATE * 3 / 10
+        private const val TRAIL = P.SAMPLE_RATE * 15 / 100
+
+        /** how far margins may take a segment past maxSegmentSeconds (QNN window is 20 s, cut at 19) */
+        private const val MARGIN_LIMIT = P.SAMPLE_RATE / 2
         private const val PARTIAL_INTERVAL_MS = 400L
         private const val PARTIAL_MIN_NEW_AUDIO = P.SAMPLE_RATE * 3 / 10
 
