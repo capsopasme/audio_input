@@ -63,6 +63,12 @@ NPU 模型是按芯片编译的，设置里只列出本机芯片对应的那一�
 - 不需要自启动、后台运行、电池优化白名单等任何权限：输入法由系统绑定，识别进程只在键盘使用时运行。
 - 麦克风权限由一个透明 Activity 代为申请（输入法本身不能弹权限框）。
 
+## 配合状态栏手势模块
+
+statusbar_dt2s（KernelSU 模块） v2.0.0 起，弹出输入法时长按状态栏可以在本输入法和 Gboard 之间切换。
+从本输入法切走时，模块会请本输入法自己切（广播 `io.github.capsopasme.audioinput.action.SWITCH_IME`，受签名权限保护，只有 root 能发），
+和点「切回」一样先等正在识别的那句上屏。
+
 ## 给助手用（不弹键盘）
 
 [助手（capsopasme/Assistant）](https://github.com/capsopasme/Assistant) 通过 `RecognizerBridgeService` 直接使用本应用的识别：
