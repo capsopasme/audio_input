@@ -156,4 +156,5 @@
     <string name="about_source">Source code</string>
     <string name="about_licenses">Open source licenses</string>
     <string name="licenses_text">Audio Input — LGPL-2.1-or-later (the recognizer integration is derived from fcitx5-android, LGPL-2.1-or-later).\n\nsherpa-onnx — Apache-2.0\nONNX Runtime — MIT\nSilero VAD — MIT\nQualcomm AI Engine Direct (QNN) runtime — Qualcomm license, redistributed as provided by sherpa-onnx\nAndroidX, Material Components, Material icons — Apache-2.0\n\nModels are downloaded separately and keep their own licenses: SenseVoice — FunASR model license; Qwen3-ASR — Apache-2.0.</string>
+    <string name="perm_switch_ime">Switch input method</string>
 </resources>

@@ -5,12 +5,17 @@
 package io.github.capsopasme.audioinput.ime
 
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import io.github.capsopasme.audioinput.settings.Prefs
 
@@ -79,11 +84,48 @@ class VoiceImeService : InputMethodService() {
         super.onWindowShown()
         setupNavigationBar()
         controller.onWindowShown()
+        registerSwitchReceiver()
     }
 
     override fun onWindowHidden() {
+        unregisterSwitchReceiver()
         controller.onWindowHidden()
         super.onWindowHidden()
+    }
+
+    /**
+     * Switch requests from the status bar module, accepted only while the panel is on screen
+     * (registered dynamically: nothing is listening otherwise). The result code 1 tells the module
+     * that this input method takes care of it; without it the module switches by itself.
+     */
+    private var switchReceiver: BroadcastReceiver? = null
+
+    private fun registerSwitchReceiver() {
+        if (switchReceiver != null) return
+        val r = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action != ACTION_SWITCH_IME || !isInputViewShown) return
+                if (isOrderedBroadcast) resultCode = 1
+                controller.requestSwitch(intent.getStringExtra(EXTRA_TARGET))
+            }
+        }
+        try {
+            ContextCompat.registerReceiver(
+                this, r, IntentFilter(ACTION_SWITCH_IME), PERMISSION_SWITCH_IME, null,
+                ContextCompat.RECEIVER_EXPORTED
+            )
+            switchReceiver = r
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun unregisterSwitchReceiver() {
+        val r = switchReceiver ?: return
+        switchReceiver = null
+        try {
+            unregisterReceiver(r)
+        } catch (_: Exception) {
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -93,6 +135,7 @@ class VoiceImeService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        unregisterSwitchReceiver()
         controller.destroy()
         super.onDestroy()
     }
@@ -113,5 +156,11 @@ class VoiceImeService : InputMethodService() {
         val night = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
         WindowCompat.getInsetsController(w, w.decorView).isAppearanceLightNavigationBars = !night
+    }
+
+    companion object {
+        const val ACTION_SWITCH_IME = "io.github.capsopasme.audioinput.action.SWITCH_IME"
+        const val EXTRA_TARGET = "target"
+        const val PERMISSION_SWITCH_IME = "io.github.capsopasme.audioinput.permission.SWITCH_IME"
     }
 }

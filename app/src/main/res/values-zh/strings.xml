@@ -156,4 +156,5 @@
     <string name="about_source">源代码</string>
     <string name="about_licenses">开源许可</string>
     <string name="licenses_text">离线语音输入 — LGPL-2.1-or-later（识别部分的集成代码源自 fcitx5-android，LGPL-2.1-or-later）。\n\nsherpa-onnx — Apache-2.0\nONNX Runtime — MIT\nSilero VAD — MIT\n高通 AI Engine Direct（QNN）运行库 — 高通许可，按 sherpa-onnx 提供的版本分发\nAndroidX、Material Components、Material 图标 — Apache-2.0\n\n模型单独下载，沿用各自的许可：SenseVoice — FunASR 模型许可；Qwen3-ASR — Apache-2.0。</string>
+    <string name="perm_switch_ime">切换输入法</string>
 </resources>

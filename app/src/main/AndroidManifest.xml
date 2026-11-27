@@ -8,6 +8,16 @@
     <!-- to warn before downloading hundreds of MB over mobile data -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!--
+      Lets the status bar gesture module (statusbar_dt2s, running as root) ask this input method to
+      switch to the keyboard after the sentence being recognized has landed. Root is exempt from
+      the check; no other app can hold a signature permission of ours.
+    -->
+    <permission
+        android:name="io.github.capsopasme.audioinput.permission.SWITCH_IME"
+        android:label="@string/perm_switch_ime"
+        android:protectionLevel="signature" />
+
     <application
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"

@@ -592,8 +592,22 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
 
     override fun onSwitchIme() {
         haptic()
+        switchTarget = null
         switchBack()
     }
+
+    /**
+     * Switch request from outside (the status bar long press of statusbar_dt2s): the same as the
+     * panel's switch button, but to the given input method, and a second request while waiting
+     * switches at once (like tapping the button again).
+     */
+    fun requestSwitch(target: String?) {
+        switchTarget = target?.takeIf { it.contains('/') }
+        switchBack()
+    }
+
+    /** where [doSwitchBack] goes; null = the previous input method */
+    private var switchTarget: String? = null
 
     override fun onSwitchImeLongPress() {
         haptic()
@@ -643,6 +657,17 @@ class VoiceController(private val service: VoiceImeService) : VoicePanel.Actions
     }
 
     private fun doSwitchBack() {
+        val target = switchTarget
+        switchTarget = null
+        if (target != null) {
+            try {
+                service.switchInputMethod(target)
+                return
+            } catch (e: Exception) {
+                // not installed / not enabled: fall back to the previous input method
+                Log.w(TAG, "switching to $target failed", e)
+            }
+        }
         val switched = try {
             service.switchToPreviousInputMethod() || service.switchToNextInputMethod(false)
         } catch (e: Exception) {
